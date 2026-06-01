@@ -13,8 +13,7 @@
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "audit": "npm audit --production"
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
@@ -89,7 +88,7 @@
     }
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=20.12.0",
     "npm": ">=9.0.0"
   }
 }

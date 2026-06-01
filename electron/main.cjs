@@ -376,26 +376,39 @@ ipcMain.handle('fs:exists', async (event, filePath) => {
   }
 })
 
+const fontkit = require('@pdf-lib/fontkit')
+
+function sliceTtcFirstFont(buffer) {
+  const ttc = fontkit.create(buffer)
+  const offsets = [...ttc.header.offsets].sort((a, b) => a - b)
+  const start = offsets[0]
+  const end = offsets[1] != null ? offsets[1] : buffer.length
+  return buffer.subarray(start, end)
+}
+
 ipcMain.handle('fs:readSystemFont', async (event, fontName) => {
   try {
     const platform = process.platform
     const fontPaths = {
       'simsun': platform === 'win32'
-        ? path.join(process.env.WINDIR || 'C:\\Windows', 'Fonts', 'simsun.ttc')
+        ? path.join(process.env.WINDIR || 'C:\\Windows', 'Fonts', 'STSONG.TTF')
         : platform === 'darwin'
           ? '/System/Library/Fonts/STSong.ttf'
-          : '/usr/share/fonts/truetype/arphic/uming.ttc',
+          : '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf',
       'msyh': platform === 'win32'
-        ? path.join(process.env.WINDIR || 'C:\\Windows', 'Fonts', 'msyh.ttc')
+        ? path.join(process.env.WINDIR || 'C:\\Windows', 'Fonts', 'STXIHEI.TTF')
         : platform === 'darwin'
           ? '/System/Library/Fonts/PingFang.ttc'
-          : '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+          : '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf',
     }
     const fontPath = fontPaths[fontName]
     if (!fontPath || !fs.existsSync(fontPath)) {
       return { error: `字体文件不存在: ${fontName}` }
     }
-    const buffer = await fs.promises.readFile(fontPath)
+    let buffer = await fs.promises.readFile(fontPath)
+    if (buffer.length >= 4 && buffer.slice(0, 4).toString('ascii') === 'ttcf') {
+      buffer = sliceTtcFirstFont(buffer)
+    }
     return buffer
   } catch (error) {
     return { error: error.message }
