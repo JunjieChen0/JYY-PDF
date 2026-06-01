@@ -1,51 +1,31 @@
-import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Merge, ArrowUpDown, Loader2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { createCancellationToken, CancelledError } from '@/lib/cancellation'
+import { useOperation } from '@/hooks/useOperation'
 import type { UsePDFReturn } from '@/hooks/usePDF'
-import type { CancellationToken } from '@/lib/cancellation'
 
 interface MergePanelProps {
   pdf: UsePDFReturn
 }
 
 export function MergePanel({ pdf }: MergePanelProps) {
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [cancelToken, setCancelToken] = useState<CancellationToken | null>(null)
+  const { isProcessing, progress, execute, cancel } = useOperation({
+    errorMessagePrefix: '合并失败',
+  })
 
   const handleMerge = async () => {
     if (pdf.files.length < 2) return
 
-    const token = createCancellationToken()
-    setCancelToken(token)
-    setIsProcessing(true)
-    setProgress(0)
+    const outputPath = await execute(async (onProgress, token) => {
+      return pdf.mergeFiles(onProgress, token)
+    })
 
-    try {
-      const outputPath = await pdf.mergeFiles((p) => setProgress(p), token)
-      if (outputPath) {
-        toast.success(`合并完成！保存至：${outputPath}`)
-      }
-    } catch (error) {
-      if (error instanceof CancelledError) {
-        toast.info('操作已取消')
-      } else {
-        toast.error(`合并失败：${error instanceof Error ? error.message : String(error)}`)
-      }
-    } finally {
-      setIsProcessing(false)
-      setProgress(0)
-      setCancelToken(null)
+    if (outputPath) {
+      toast.success(`合并完成！保存至：${outputPath}`)
     }
-  }
-
-  const handleCancel = () => {
-    cancelToken?.cancel()
   }
 
   return (
@@ -97,7 +77,7 @@ export function MergePanel({ pdf }: MergePanelProps) {
             )}
           </Button>
           {isProcessing && (
-            <Button variant="outline" onClick={handleCancel}>
+            <Button variant="outline" onClick={cancel}>
               <XCircle className="mr-2 h-4 w-4" />
               取消
             </Button>

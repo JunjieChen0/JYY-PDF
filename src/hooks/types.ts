@@ -16,20 +16,8 @@ export interface ElectronAPI {
   fileExists: (filePath: string) => Promise<boolean>
   fileStat: (filePath: string) => Promise<{ size: number; isFile: boolean; isDirectory: boolean }>
   convertWordToPdf: (filePath: string) => Promise<{ data?: Uint8Array; error?: string }>
+  readSystemFont: (fontName: string) => Promise<Uint8Array | FileResult>
   getPathForFile: (file: File) => string
-}
-
-if (typeof window !== 'undefined' && !window.electronAPI) {
-  window.electronAPI = {
-    openFile: () => Promise.resolve({ canceled: true, filePaths: [] }),
-    saveFile: () => Promise.resolve({ canceled: true, filePath: '' }),
-    readFile: () => Promise.resolve({ error: 'electronAPI 不可用' }),
-    writeFile: () => Promise.resolve({ error: 'electronAPI 不可用' }),
-    fileExists: () => Promise.resolve(false),
-    fileStat: () => Promise.resolve({ error: 'electronAPI 不可用' } as unknown as { size: number; isFile: boolean; isDirectory: boolean }),
-    convertWordToPdf: () => Promise.resolve({ error: 'electronAPI 不可用' }),
-    getPathForFile: () => '',
-  }
 }
 
 declare global {

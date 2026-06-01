@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { PDFDocument, rgb } from 'pdf-lib'
+import fontkit from '@pdf-lib/fontkit'
 import type { PDFFile, ProgressCallback, Annotation } from './types'
 import type { CancellationToken } from '@/lib/cancellation'
 import { hexToRgb, checkResult, validatePdfHeader } from '@/lib/pdf-helpers'
@@ -24,7 +25,12 @@ export function usePDFAnnotation(files: PDFFile[]) {
     onProgress?.(10)
 
     const pdfDoc = await PDFDocument.load(new Uint8Array(file.data), { ignoreEncryption: true })
+    pdfDoc.registerFontkit(fontkit)
     const totalPages = pdfDoc.getPageCount()
+
+    const fontBytes = await window.electronAPI.readSystemFont('simsun')
+    checkResult(fontBytes, '读取系统字体失败，请确保系统已安装宋体字体')
+    const embeddedFont = await pdfDoc.embedFont(fontBytes as Uint8Array, { subset: true })
 
     for (let i = 0; i < annotations.length; i++) {
       token?.throwIfCancelled()
@@ -41,6 +47,7 @@ export function usePDFAnnotation(files: PDFFile[]) {
           page.drawText(ann.text || '', {
             x: ann.x, y: ann.y,
             size: ann.fontSize || 16,
+            font: embeddedFont,
             color,
             opacity,
           })

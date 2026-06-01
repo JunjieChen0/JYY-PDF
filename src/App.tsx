@@ -3,7 +3,7 @@ import { FileText, Moon, Sun } from 'lucide-react'
 import { useState, useEffect, useCallback, Suspense, lazy, useMemo } from 'react'
 import { Toaster } from 'sonner'
 
-const APP_VERSION = '2.5.0'
+const APP_VERSION = import.meta.env.APP_VERSION
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
@@ -129,6 +129,7 @@ function App() {
             <Button
               variant="ghost"
               size="icon"
+              aria-label={darkMode ? '切换为亮色模式' : '切换为暗色模式'}
               onClick={() => setDarkMode(!darkMode)}
             >
               {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}

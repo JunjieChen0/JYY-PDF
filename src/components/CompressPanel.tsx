@@ -8,10 +8,9 @@ import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { createCancellationToken, CancelledError } from '@/lib/cancellation'
+import { useOperation } from '@/hooks/useOperation'
 import { useFileSelection } from '@/hooks/useFileSelection'
 import type { UsePDFReturn } from '@/hooks/usePDF'
-import type { CancellationToken } from '@/lib/cancellation'
 
 interface CompressPanelProps {
   pdf: UsePDFReturn
@@ -20,11 +19,11 @@ interface CompressPanelProps {
 export function CompressPanel({ pdf }: CompressPanelProps) {
   const { selectedFiles, selectedCount, isAllSelected, toggleFile, toggleAll, isSelected } = useFileSelection(pdf.files)
   const [compressLevel, setCompressLevel] = useState<'high' | 'medium' | 'low'>('medium')
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [cancelToken, setCancelToken] = useState<CancellationToken | null>(null)
-  const [currentFileIndex, setCurrentFileIndex] = useState(0)
   const [preserveMetadata, setPreserveMetadata] = useState(true)
+  const [currentFileIndex, setCurrentFileIndex] = useState(0)
+  const { isProcessing, progress, execute, cancel } = useOperation({
+    errorMessagePrefix: '压缩失败',
+  })
 
   const levelOptions = [
     { value: 'low', label: '快速', desc: '保存速度快，界面响应好', sizeReduction: '约 20%' },
@@ -35,50 +34,30 @@ export function CompressPanel({ pdf }: CompressPanelProps) {
   const handleCompress = async () => {
     if (selectedCount === 0) return
 
-    const token = createCancellationToken()
-    setCancelToken(token)
-    setIsProcessing(true)
-    setProgress(0)
-    setCurrentFileIndex(0)
-
     const fileIds = Array.from(selectedFiles)
     let successCount = 0
 
-    try {
+    const result = await execute(async (onProgress, token) => {
       for (let i = 0; i < fileIds.length; i++) {
         token.throwIfCancelled()
         setCurrentFileIndex(i)
 
         const fileProgress = (p: number) => {
           const overall = Math.round(((i / fileIds.length) * 100) + (p / fileIds.length))
-          setProgress(overall)
+          onProgress(overall)
         }
 
         const outputPath = await pdf.compressFile(fileIds[i], compressLevel, fileProgress, token, { preserveMetadata })
-        if (outputPath) {
-          successCount++
-        }
+        if (outputPath) successCount++
       }
+      return successCount
+    })
 
-      if (successCount > 0) {
-        toast.success(`压缩完成！成功处理 ${successCount}/${fileIds.length} 个文件`)
-      }
-    } catch (error) {
-      if (error instanceof CancelledError) {
-        toast.info(`操作已取消（已完成 ${successCount}/${fileIds.length} 个文件）`)
-      } else {
-        toast.error(`压缩失败：${error instanceof Error ? error.message : String(error)}`)
-      }
-    } finally {
-      setIsProcessing(false)
-      setProgress(0)
-      setCurrentFileIndex(0)
-      setCancelToken(null)
+    setCurrentFileIndex(0)
+
+    if (result && result > 0) {
+      toast.success(`压缩完成！成功处理 ${result}/${fileIds.length} 个文件`)
     }
-  }
-
-  const handleCancel = () => {
-    cancelToken?.cancel()
   }
 
   return (
@@ -202,7 +181,7 @@ export function CompressPanel({ pdf }: CompressPanelProps) {
                 )}
               </Button>
               {isProcessing && (
-                <Button variant="outline" onClick={handleCancel}>
+                <Button variant="outline" onClick={cancel}>
                   <XCircle className="mr-2 h-4 w-4" />
                   取消
                 </Button>

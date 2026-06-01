@@ -9,10 +9,9 @@ import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { createCancellationToken, CancelledError } from '@/lib/cancellation'
+import { useOperation } from '@/hooks/useOperation'
 import { useFileSelection } from '@/hooks/useFileSelection'
 import type { UsePDFReturn } from '@/hooks/usePDF'
-import type { CancellationToken } from '@/lib/cancellation'
 
 interface ConvertPanelProps {
   pdf: UsePDFReturn
@@ -22,32 +21,27 @@ export function ConvertPanel({ pdf }: ConvertPanelProps) {
   const { selectedFiles, selectedCount, isAllSelected, toggleFile, toggleAll, isSelected } = useFileSelection(pdf.files)
   const [convertType, setConvertType] = useState<'image' | 'text'>('image')
   const [imageFormat, setImageFormat] = useState<'png' | 'jpg'>('png')
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
-  const [cancelToken, setCancelToken] = useState<CancellationToken | null>(null)
   const [currentFileIndex, setCurrentFileIndex] = useState(0)
+  const { isProcessing, progress, execute, cancel } = useOperation({
+    errorMessagePrefix: '转换失败',
+    onCancelMessage: '操作已取消',
+  })
 
   const handleConvert = async () => {
     if (selectedCount === 0) return
 
-    const token = createCancellationToken()
-    setCancelToken(token)
-    setIsProcessing(true)
-    setProgress(0)
-    setCurrentFileIndex(0)
-
     const fileIds = Array.from(selectedFiles)
-    let successCount = 0
 
-    try {
+    const result = await execute(async (onProgress, token) => {
+      let successCount = 0
       for (let i = 0; i < fileIds.length; i++) {
         token.throwIfCancelled()
         setCurrentFileIndex(i)
 
         const fileProgress = (p: number) => {
           const overall = Math.round(((i / fileIds.length) * 100) + (p / fileIds.length))
-          setProgress(overall)
+          onProgress(overall)
         }
 
         if (convertType === 'text') {
@@ -58,21 +52,13 @@ export function ConvertPanel({ pdf }: ConvertPanelProps) {
           if (outputPath) successCount++
         }
       }
+      return successCount
+    })
 
-      if (successCount > 0) {
-        toast.success(`转换完成！成功处理 ${successCount}/${fileIds.length} 个文件`)
-      }
-    } catch (error) {
-      if (error instanceof CancelledError) {
-        toast.info(`操作已取消（已完成 ${successCount}/${fileIds.length} 个文件）`)
-      } else {
-        toast.error(`转换失败：${error instanceof Error ? error.message : String(error)}`)
-      }
-    } finally {
-      setIsProcessing(false)
-      setProgress(0)
-      setCurrentFileIndex(0)
-      setCancelToken(null)
+    setCurrentFileIndex(0)
+
+    if (result && result > 0) {
+      toast.success(`转换完成！成功处理 ${result}/${fileIds.length} 个文件`)
     }
   }
 
@@ -87,10 +73,6 @@ export function ConvertPanel({ pdf }: ConvertPanelProps) {
   const confirmImageConvert = () => {
     setShowConfirmDialog(false)
     handleConvert()
-  }
-
-  const handleCancel = () => {
-    cancelToken?.cancel()
   }
 
   return (
@@ -221,7 +203,7 @@ export function ConvertPanel({ pdf }: ConvertPanelProps) {
                   )}
                 </Button>
                 {isProcessing && (
-                  <Button variant="outline" onClick={handleCancel}>
+                  <Button variant="outline" onClick={cancel}>
                     <XCircle className="mr-2 h-4 w-4" />
                     取消
                   </Button>

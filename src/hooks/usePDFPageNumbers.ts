@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { PDFDocument } from 'pdf-lib'
+import fontkit from '@pdf-lib/fontkit'
 import type { PDFFile, ProgressCallback, PageNumberPosition } from './types'
 import type { CancellationToken } from '@/lib/cancellation'
 import { hexToRgb, estimateTextWidth, checkResult, validatePdfHeader } from '@/lib/pdf-helpers'
@@ -35,6 +36,7 @@ export function usePDFPageNumbers(files: PDFFile[]) {
 
     validatePdfHeader(file.data)
     const pdfDoc = await PDFDocument.load(new Uint8Array(file.data), { ignoreEncryption: true })
+    pdfDoc.registerFontkit(fontkit)
     const pages = pdfDoc.getPages()
     const totalPages = pages.length
     const {
@@ -45,6 +47,10 @@ export function usePDFPageNumbers(files: PDFFile[]) {
       format = 'simple',
       prefix = ''
     } = options
+
+    const fontBytes = await window.electronAPI.readSystemFont('simsun')
+    checkResult(fontBytes, '读取系统字体失败，请确保系统已安装宋体字体')
+    const embeddedFont = await pdfDoc.embedFont(fontBytes as Uint8Array, { subset: true })
 
     for (let i = 0; i < pages.length; i++) {
       token?.throwIfCancelled()
@@ -101,6 +107,7 @@ export function usePDFPageNumbers(files: PDFFile[]) {
         x,
         y,
         size: fontSize,
+        font: embeddedFont,
         color: hexToRgb(color),
         opacity: 1,
       })

@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fileExists: (filePath) => ipcRenderer.invoke('fs:exists', filePath),
   fileStat: (filePath) => ipcRenderer.invoke('fs:stat', filePath),
   convertWordToPdf: (filePath) => ipcRenderer.invoke('convert:wordToPdf', filePath),
+  readSystemFont: (fontName) => ipcRenderer.invoke('fs:readSystemFont', fontName),
   getPathForFile: (file) => {
     try {
       return webUtils.getPathForFile(file)

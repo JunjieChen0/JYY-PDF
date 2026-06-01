@@ -43,10 +43,12 @@ export function FileList({ files, onRemove, onReorder, getThumbnail }: FileListP
 
   return (
     <ScrollArea className="flex-1">
-      <div>
+      <div role="list" aria-label="PDF文件列表">
         {files.map((file, index) => (
           <div
             key={file.id}
+            role="listitem"
+            aria-label={`${file.name}，${formatFileSize(file.size)}，${file.pageCount}页`}
             draggable
             onDragStart={handleDragStart(index)}
             onDragOver={handleDragOver}
@@ -72,6 +74,7 @@ export function FileList({ files, onRemove, onReorder, getThumbnail }: FileListP
             <Button
               variant="ghost"
               size="icon"
+              aria-label={`移除 ${file.name}`}
               className="opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={() => onRemove(file.id)}
             >

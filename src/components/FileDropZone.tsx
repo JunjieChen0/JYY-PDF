@@ -24,13 +24,16 @@ export function FileDropZone({ onFiles, className }: FileDropZoneProps) {
   return (
     <div
       {...getRootProps()}
+      role="button"
+      aria-label="拖拽或点击添加PDF文件"
+      tabIndex={0}
       className={cn(
         'dropzone',
         isDragActive && 'active',
         className
       )}
     >
-      <input {...getInputProps()} />
+      <input {...getInputProps()} aria-label="选择PDF文件" />
       <motion.div
         initial={false}
         animate={{ scale: isDragActive ? 1.1 : 1 }}

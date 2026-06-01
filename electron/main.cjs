@@ -11,9 +11,10 @@ function getUserDocsPath() {
 
 function isPathSafe(filePath) {
   if (!filePath || typeof filePath !== 'string') return false
+  if (filePath.includes('\0')) return false
   if (filePath.includes('..') || filePath.match(/%2e|%252e/i)) return false
   const normalized = path.normalize(filePath)
-  if (normalized.includes('..')) return false
+  if (normalized.includes('..') || normalized.includes('\0')) return false
   return true
 }
 
@@ -372,6 +373,32 @@ ipcMain.handle('fs:exists', async (event, filePath) => {
     return fs.existsSync(filePath)
   } catch {
     return false
+  }
+})
+
+ipcMain.handle('fs:readSystemFont', async (event, fontName) => {
+  try {
+    const platform = process.platform
+    const fontPaths = {
+      'simsun': platform === 'win32'
+        ? path.join(process.env.WINDIR || 'C:\\Windows', 'Fonts', 'simsun.ttc')
+        : platform === 'darwin'
+          ? '/System/Library/Fonts/STSong.ttf'
+          : '/usr/share/fonts/truetype/arphic/uming.ttc',
+      'msyh': platform === 'win32'
+        ? path.join(process.env.WINDIR || 'C:\\Windows', 'Fonts', 'msyh.ttc')
+        : platform === 'darwin'
+          ? '/System/Library/Fonts/PingFang.ttc'
+          : '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+    }
+    const fontPath = fontPaths[fontName]
+    if (!fontPath || !fs.existsSync(fontPath)) {
+      return { error: `字体文件不存在: ${fontName}` }
+    }
+    const buffer = await fs.promises.readFile(fontPath)
+    return buffer
+  } catch (error) {
+    return { error: error.message }
   }
 })
 

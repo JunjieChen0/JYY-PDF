@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { PDFDocument, degrees } from 'pdf-lib'
+import fontkit from '@pdf-lib/fontkit'
 import type { PDFFile, ProgressCallback, WatermarkPosition } from './types'
 import type { CancellationToken } from '@/lib/cancellation'
 import { hexToRgb, estimateTextWidth, checkResult, validatePdfHeader } from '@/lib/pdf-helpers'
@@ -32,6 +33,7 @@ export function usePDFWatermark(files: PDFFile[]) {
     validatePdfHeader(file.data)
 
     const pdfDoc = await PDFDocument.load(new Uint8Array(file.data), { ignoreEncryption: true })
+    pdfDoc.registerFontkit(fontkit)
     const pages = pdfDoc.getPages()
     const {
       type,
@@ -64,12 +66,19 @@ export function usePDFWatermark(files: PDFFile[]) {
 
     if (result.canceled || !result.filePath) return null
 
+    let embeddedFont: Awaited<ReturnType<PDFDocument['embedFont']>> | null = null
+    if (type === 'text') {
+      const fontBytes = await window.electronAPI.readSystemFont('simsun')
+      checkResult(fontBytes, '读取系统字体失败，请确保系统已安装宋体字体')
+      embeddedFont = await pdfDoc.embedFont(fontBytes as Uint8Array, { subset: true })
+    }
+
     for (let i = 0; i < pages.length; i++) {
       token?.throwIfCancelled()
       const page = pages[i]
       const { width, height } = page.getSize()
 
-      if (type === 'text') {
+      if (type === 'text' && embeddedFont) {
         const textWidth = estimateTextWidth(content, fontSize)
 
         const getPosition = () => {
@@ -94,6 +103,7 @@ export function usePDFWatermark(files: PDFFile[]) {
                 x,
                 y,
                 size: fontSize,
+                font: embeddedFont,
                 color: hexToRgb(color),
                 opacity,
                 rotate: degrees(rotate),
@@ -107,6 +117,7 @@ export function usePDFWatermark(files: PDFFile[]) {
             x,
             y,
             size: fontSize,
+            font: embeddedFont,
             color: hexToRgb(color),
             opacity,
             rotate: degrees(rotate),

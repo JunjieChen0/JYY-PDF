@@ -10,8 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { UsePDFReturn } from '@/hooks/usePDF'
 import { useFileSelection } from '@/hooks/useFileSelection'
-import { createCancellationToken, CancelledError } from '@/lib/cancellation'
-import type { CancellationToken } from '@/lib/cancellation'
+import { useOperation } from '@/hooks/useOperation'
 
 interface OcrPanelProps {
   pdf: UsePDFReturn
@@ -28,47 +27,35 @@ const LANGUAGES = [
 export function OcrPanel({ pdf }: OcrPanelProps) {
   const { selectedFiles, selectedCount, isAllSelected, toggleFile, toggleAll, isSelected } = useFileSelection(pdf.files)
   const [language, setLanguage] = useState('chi_sim+eng')
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [cancelToken, setCancelToken] = useState<CancellationToken | null>(null)
+  const { isProcessing, progress, execute, cancel } = useOperation({
+    errorMessagePrefix: 'OCR失败',
+    onCancelMessage: '已取消OCR操作',
+  })
 
   const handleOcr = async () => {
     if (selectedCount === 0) {
       toast.error('请先选择PDF文件')
       return
     }
-    const token = createCancellationToken()
-    setCancelToken(token)
-    setIsProcessing(true)
-    setProgress(0)
-    try {
+
+    const result = await execute(async (onProgress, token) => {
       let completed = 0
       for (const fileId of selectedFiles) {
         token.throwIfCancelled()
         await pdf.ocrPDF(
           fileId,
           language,
-          p => setProgress(Math.round(((completed + p / 100) / selectedCount) * 100)),
+          p => onProgress(Math.round(((completed + p / 100) / selectedCount) * 100)),
           token
         )
         completed++
       }
-      toast.success('全部OCR完成！')
-    } catch (error) {
-      if (error instanceof CancelledError) {
-        toast.info('已取消OCR操作')
-      } else {
-        toast.error(`OCR失败：${error instanceof Error ? error.message : String(error)}`)
-      }
-    } finally {
-      setIsProcessing(false)
-      setCancelToken(null)
-      setProgress(0)
-    }
-  }
+      return completed
+    })
 
-  const handleCancel = () => {
-    cancelToken?.cancel()
+    if (result) {
+      toast.success('全部OCR完成！')
+    }
   }
 
   return (
@@ -145,7 +132,7 @@ export function OcrPanel({ pdf }: OcrPanelProps) {
                 <Button
                   variant="destructive"
                   className="flex-1"
-                  onClick={handleCancel}
+                  onClick={cancel}
                 >
                   取消
                 </Button>

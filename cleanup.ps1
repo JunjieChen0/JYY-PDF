@@ -1,3 +1,7 @@
+# cleanup.ps1 - 清理 dist-electron 构建目录
+# 使用场景：当 electron-builder 构建失败后目录被锁定时运行此脚本
+# 用法：.\cleanup.ps1
+
 # Try to rename the directory first
 $oldPath = "D:\PDF\dist-electron"
 $newPath = "D:\PDF\dist-electron-old"

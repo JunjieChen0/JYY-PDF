@@ -72,12 +72,13 @@ export function checkResult(result: unknown, errorMsg: string): void {
 }
 
 export function validatePdfHeader(data: Uint8Array): void {
+  let header: string
   try {
-    const header = new TextDecoder().decode(data.slice(0, 5))
-    if (header !== '%PDF-') {
-      throw new Error('不是有效的PDF文档')
-    }
+    header = new TextDecoder().decode(data.slice(0, 5))
   } catch {
     throw new Error('无法读取文件数据，请重新添加该文件')
+  }
+  if (header !== '%PDF-') {
+    throw new Error('不是有效的PDF文档')
   }
 }

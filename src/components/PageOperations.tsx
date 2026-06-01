@@ -7,9 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { createCancellationToken, CancelledError } from '@/lib/cancellation'
+import { useOperation } from '@/hooks/useOperation'
 import type { UsePDFReturn } from '@/hooks/usePDF'
-import type { CancellationToken } from '@/lib/cancellation'
 
 interface PageOperationsProps {
   pdf: UsePDFReturn
@@ -22,54 +21,30 @@ export function PageOperations({ pdf }: PageOperationsProps) {
   const [operation, setOperation] = useState<Operation>('rotate')
   const [pageRange, setPageRange] = useState('')
   const [rotateAngle, setRotateAngle] = useState(90)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [cancelToken, setCancelToken] = useState<CancellationToken | null>(null)
+  const { isProcessing, progress, execute, cancel } = useOperation({
+    errorMessagePrefix: '操作失败',
+  })
 
   const selectedFileData = pdf.files.find(f => f.id === selectedFile)
 
   const handleOperation = async () => {
     if (!selectedFile || !pageRange) return
 
-    const token = createCancellationToken()
-    setCancelToken(token)
-    setIsProcessing(true)
-    setProgress(0)
-
-    try {
-      let result: string | null = null
-
+    const result = await execute(async (onProgress, token) => {
       switch (operation) {
         case 'rotate':
-          result = await pdf.rotatePages(selectedFile, pageRange, rotateAngle, (p) => setProgress(p), token)
-          break
+          return pdf.rotatePages(selectedFile, pageRange, rotateAngle, onProgress, token)
         case 'delete':
-          result = await pdf.deletePages(selectedFile, pageRange, (p) => setProgress(p), token)
-          break
+          return pdf.deletePages(selectedFile, pageRange, onProgress, token)
         case 'extract':
-          result = await pdf.extractPages(selectedFile, pageRange, (p) => setProgress(p), token)
-          break
+          return pdf.extractPages(selectedFile, pageRange, onProgress, token)
       }
+    })
 
-      if (result) {
-        const opNames = { rotate: '旋转', delete: '删除', extract: '提取' }
-        toast.success(`${opNames[operation]}完成！保存至：${result}`)
-      }
-    } catch (error) {
-      if (error instanceof CancelledError) {
-        toast.info('操作已取消')
-      } else {
-        toast.error(`操作失败：${error instanceof Error ? error.message : String(error)}`)
-      }
-    } finally {
-      setIsProcessing(false)
-      setProgress(0)
-      setCancelToken(null)
+    if (result) {
+      const opNames = { rotate: '旋转', delete: '删除', extract: '提取' }
+      toast.success(`${opNames[operation]}完成！保存至：${result}`)
     }
-  }
-
-  const handleCancel = () => {
-    cancelToken?.cancel()
   }
 
   const operations: { id: Operation; label: string; icon: React.ReactNode }[] = [
@@ -210,7 +185,7 @@ export function PageOperations({ pdf }: PageOperationsProps) {
                 )}
               </Button>
               {isProcessing && (
-                <Button variant="outline" onClick={handleCancel}>
+                <Button variant="outline" onClick={cancel}>
                   <XCircle className="mr-2 h-4 w-4" />
                   取消
                 </Button>

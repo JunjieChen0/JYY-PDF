@@ -6,9 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { createCancellationToken, CancelledError } from '@/lib/cancellation'
+import { useOperation } from '@/hooks/useOperation'
 import type { UsePDFReturn } from '@/hooks/usePDF'
-import type { CancellationToken } from '@/lib/cancellation'
 
 interface SplitPanelProps {
   pdf: UsePDFReturn
@@ -17,40 +16,22 @@ interface SplitPanelProps {
 export function SplitPanel({ pdf }: SplitPanelProps) {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [rangeStr, setRangeStr] = useState('')
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [cancelToken, setCancelToken] = useState<CancellationToken | null>(null)
+  const { isProcessing, progress, execute, cancel } = useOperation({
+    errorMessagePrefix: '分割失败',
+  })
 
   const selectedFileData = pdf.files.find(f => f.id === selectedFile)
 
   const handleSplit = async () => {
     if (!selectedFile || !rangeStr) return
 
-    const token = createCancellationToken()
-    setCancelToken(token)
-    setIsProcessing(true)
-    setProgress(0)
+    const results = await execute(async (onProgress, token) => {
+      return pdf.splitFile(selectedFile, rangeStr, onProgress, token)
+    })
 
-    try {
-      const results = await pdf.splitFile(selectedFile, rangeStr, (p) => setProgress(p), token)
-      if (results) {
-        toast.success(`分割完成！生成 ${results.length} 个文件`)
-      }
-    } catch (error) {
-      if (error instanceof CancelledError) {
-        toast.info('操作已取消')
-      } else {
-        toast.error(`分割失败：${error instanceof Error ? error.message : String(error)}`)
-      }
-    } finally {
-      setIsProcessing(false)
-      setProgress(0)
-      setCancelToken(null)
+    if (results) {
+      toast.success(`分割完成！生成 ${results.length} 个文件`)
     }
-  }
-
-  const handleCancel = () => {
-    cancelToken?.cancel()
   }
 
   return (
@@ -144,7 +125,7 @@ export function SplitPanel({ pdf }: SplitPanelProps) {
                 )}
               </Button>
               {isProcessing && (
-                <Button variant="outline" onClick={handleCancel}>
+                <Button variant="outline" onClick={cancel}>
                   <XCircle className="mr-2 h-4 w-4" />
                   取消
                 </Button>
