@@ -53,22 +53,57 @@ const ALLOWED_HTML_TAGS = new Set([
   'section', 'article', 'header', 'footer', 'main', 'aside', 'nav',
 ])
 
-const DANGEROUS_ATTRS = /\s+(?:on\w+|formaction|dynsrc|lowsrc|data-bind|v-bind|xlink:href)\s*=\s*(?:"[^"]*"|'[^']*'|\S+)/gi
-const DANGEROUS_STYLE = /expression\s*\(|behavior\s*:|-moz-binding\s*:|@import\s+/gi
+const DANGEROUS_ATTRS = /\s+[\w\-:.]*\s*=\s*(?:"[^"]*"|'[^']*'|\S+)/gi
+const ATTR_WHITELIST = new Set([
+  'href', 'src', 'alt', 'title', 'width', 'height', 'colspan', 'rowspan',
+  'align', 'valign', 'border', 'cellpadding', 'cellspacing', 'scope',
+  'class', 'id', 'style', 'type', 'start', 'reversed', 'value',
+  'colspan', 'rowspan', 'headers', 'abbr', 'download', 'target',
+  'loading', 'decoding', 'sizes', 'srcset', 'usemap', 'ismap',
+  'span', 'bgcolor', 'color', 'face', 'size',
+])
+const DANGEROUS_ATTR_NAMES = new Set([
+  'onfocus', 'onblur', 'onchange', 'onclick', 'ondblclick', 'onkeydown',
+  'onkeypress', 'onkeyup', 'onmousedown', 'onmousemove', 'onmouseout',
+  'onmouseover', 'onmouseup', 'onreset', 'onselect', 'onsubmit', 'onload',
+  'onerror', 'onunload', 'onresize', 'onscroll', 'onwheel', 'oncopy',
+  'oncut', 'onpaste', 'onabort', 'oncanplay', 'oncuechange', 'ondurationchange',
+  'onemptied', 'onended', 'onloadeddata', 'onloadedmetadata', 'onloadstart',
+  'onpause', 'onplay', 'onplaying', 'onprogress', 'onratechange', 'onseeked',
+  'onseeking', 'onstalled', 'onsuspend', 'ontimeupdate', 'onvolumechange',
+  'onwaiting', 'onanimationend', 'onanimationiteration', 'onanimationstart',
+  'ontransitionend', 'onmessage', 'onopen', 'onclose', 'formaction',
+  'dynsrc', 'lowsrc', 'data-bind', 'v-bind', 'xlink:href',
+  'xmlns', 'xlink',
+])
+const DANGEROUS_STYLE = /expression\s*\(|behavior\s*:|-moz-binding\s*:|@import\s+|url\s*\(|-o-link\s*:|-o-replace\s*:|@charset\s+/i
 const DANGEROUS_URI_ATTRS = /\b(?:href|src|action|poster)\s*=\s*["']?\s*(?:javascript|vbscript|data)\s*:/gi
-const SVG_SCRIPT = /<\s*\/?\s*(?:script|style|iframe|object|embed|applet|form|input|textarea|select|button)\b[^>]*>/gi
+const SCRIPT_TAGS = /<\s*\/?\s*(?:script|style|iframe|object|embed|applet|form|input|textarea|select|button|svg|math|marquee|base|link|meta)\b[^>]*>/gi
 const HTML_COMMENTS = /<!--[\s\S]*?-->/g
-const SELF_CLOSING_SLASH = /<(\w+)\s*\/>/g
+const DATA_URI_SCRIPT = /\bdata\s*:\s*text\/html/gi
 
 function sanitizeHtml(html) {
   let result = html
   result = result.replace(HTML_COMMENTS, '')
-  result = result.replace(SVG_SCRIPT, '')
-  result = result.replace(/<\/?(\w[\w-]*)[^>]*\/?>/gi, (match, tagName) => {
-    const tag = tagName.toLowerCase()
+  result = result.replace(SCRIPT_TAGS, '')
+  result = result.replace(DATA_URI_SCRIPT, 'data:text/plain')
+  result = result.replace(/<\/?(\w[\w\-:.]*)[^>]*\/?>/gi, (match, tagName) => {
+    const tag = tagName.toLowerCase().replace(/[^a-z0-9-]/g, '')
     if (!ALLOWED_HTML_TAGS.has(tag)) return ''
     let cleaned = match
-    cleaned = cleaned.replace(DANGEROUS_ATTRS, '')
+    cleaned = cleaned.replace(DANGEROUS_ATTRS, (attrMatch) => {
+      const eqIndex = attrMatch.indexOf('=')
+      if (eqIndex === -1) return ''
+      const attrName = attrMatch.substring(0, eqIndex).trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
+      if (DANGEROUS_ATTR_NAMES.has(attrName)) return ''
+      if (attrName.startsWith('on')) return ''
+      if (!ATTR_WHITELIST.has(attrName)) return ''
+      const val = attrMatch.substring(eqIndex + 1).trim()
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        return ` ${attrName}=${val}`
+      }
+      return ` ${attrName}="${val.replace(/"/g, '&quot;')}"`
+    })
     cleaned = cleaned.replace(DANGEROUS_URI_ATTRS, (m) => m.replace(/(href|src|action|poster)\s*=\s*["']?\s*(?:javascript|vbscript|data)\s*:/gi, '$1="#"'))
     cleaned = cleaned.replace(/\bstyle\s*=\s*"([^"]*)"/gi, (m, val) => {
       if (DANGEROUS_STYLE.test(val)) return ''
@@ -85,7 +120,15 @@ function sanitizeHtml(html) {
 
 function sanitizeDefaultPath(input) {
   if (!input || typeof input !== 'string') return ''
-  let sanitized = input.replace(/\.\./g, '').replace(/%2e/gi, '').replace(/%252e/gi, '')
+  let decoded
+  try {
+    decoded = decodeURIComponent(input).replace(/%2e/gi, '.').replace(/%252e/gi, '.')
+  } catch {
+    decoded = input.replace(/%2e/gi, '.').replace(/%252e/gi, '.')
+  }
+  let sanitized = decoded.replace(/\.\./g, '')
+  sanitized = path.normalize(sanitized)
+  if (sanitized.includes('..')) return ''
   if (path.isAbsolute(sanitized)) {
     sanitized = path.basename(sanitized)
   }
@@ -107,7 +150,13 @@ ipcMain.handle('convert:wordToPdf', async (event, filePath) => {
 
     win = new BrowserWindow({
       show: false,
-      webPreferences: { nodeIntegration: false, contextIsolation: true }
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+        webgl: false,
+        enableWebSQL: false,
+      }
     })
 
     const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:;"><style>
@@ -261,7 +310,26 @@ ipcMain.handle('fs:readFile', async (event, filePath) => {
     if (await isSymlink(filePath)) {
       throw new Error('Symbolic links are not allowed')
     }
+    const stat = await fs.promises.stat(filePath)
+    if (stat.size > 200 * 1024 * 1024) {
+      throw new Error('File too large (max 200MB)')
+    }
     const buffer = await fs.promises.readFile(filePath)
+    const ext = path.extname(filePath).toLowerCase()
+    if (ext === '.pdf' && buffer.length >= 5) {
+      const header = buffer.slice(0, 5).toString('ascii')
+      if (header !== '%PDF-') {
+        throw new Error('Not a valid PDF file')
+      }
+    }
+    if (['.png', '.jpg', '.jpeg'].includes(ext) && buffer.length >= 4) {
+      const magic = buffer.slice(0, 4)
+      const isPng = magic[0] === 0x89 && magic[1] === 0x50 && magic[2] === 0x4E && magic[3] === 0x47
+      const isJpg = magic[0] === 0xFF && magic[1] === 0xD8
+      if (!isPng && !isJpg) {
+        throw new Error('Not a valid image file')
+      }
+    }
     return buffer
   } catch (error) {
     return { error: error.message }

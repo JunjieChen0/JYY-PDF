@@ -55,19 +55,22 @@ export function EditPanel({ pdf }: EditPanelProps) {
     try {
       const pdfjsLib = getPdfjsLib()
       const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(selectedFileData.data), ...PDFJS_CONFIG }).promise
-      const page = await pdfDoc.getPage(pageIndex + 1)
-      const { width, height } = page.getViewport({ scale: 1 })
-      pdfDoc.destroy()
-      
-      const centerX = width / 2 - 50
-      const centerY = height / 2 - 40
-      const base = { pageIndex, color, x: centerX, y: centerY }
-      const ann: Annotation = tool === 'text'
-        ? { ...base, type: 'text', text, fontSize }
-        : tool === 'highlight'
-        ? { ...base, type: 'highlight', width: 150, height: 20, opacity: 0.3 }
-        : { ...base, type: tool, width: 100, height: 80 }
-      setAnnotations(prev => [...prev, ann])
+      try {
+        const page = await pdfDoc.getPage(pageIndex + 1)
+        const { width, height } = page.getViewport({ scale: 1 })
+        
+        const centerX = width / 2 - 50
+        const centerY = height / 2 - 40
+        const base = { pageIndex, color, x: centerX, y: centerY }
+        const ann: Annotation = tool === 'text'
+          ? { ...base, type: 'text', text, fontSize }
+          : tool === 'highlight'
+          ? { ...base, type: 'highlight', width: 150, height: 20, opacity: 0.3 }
+          : { ...base, type: tool, width: 100, height: 80 }
+        setAnnotations(prev => [...prev, ann])
+      } finally {
+        pdfDoc.destroy()
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       if (msg.includes('password') || msg.includes('encrypt')) {

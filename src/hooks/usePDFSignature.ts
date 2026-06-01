@@ -27,13 +27,14 @@ export function usePDFSignature(files: PDFFile[]) {
     let jsDetected = false
     for (let offset = 0; offset < dataCopy.length; offset += checkChunkSize) {
       const chunk = decoder.decode(dataCopy.slice(offset, offset + checkChunkSize), { stream: true })
-      if (/\/JavaScript\s*[[\]/]>]/i.test(chunk) || /\/JS\s*[[\]/]>]/i.test(chunk) || /\/S\s*\/JavaScript/i.test(chunk)) {
+      if (/\/JavaScript\s*[[\]/\s>]/i.test(chunk) || /\/JS\s*[[\]/\s>]/i.test(chunk) || /\/S\s*\/JavaScript/i.test(chunk)) {
         jsDetected = true
         break
       }
     }
     if (jsDetected) {
-      logger.warn('PDF包含嵌入式JavaScript（可能是表单验证等合法功能），继续签名')
+      logger.warn('PDF包含嵌入式JavaScript，已阻止签名操作以确保安全')
+      throw new Error('该PDF包含嵌入式JavaScript代码，可能存在安全风险。请使用专业PDF工具检查后再签名')
     }
 
     const result = await window.electronAPI.saveFile({

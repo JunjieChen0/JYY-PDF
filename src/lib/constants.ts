@@ -1,7 +1,7 @@
 export const MAX_FILE_SIZE = 100 * 1024 * 1024
-export const MAX_FILE_COUNT = 20
-export const MAX_TOTAL_SIZE = 500 * 1024 * 1024
-export const MEMORY_WARNING_THRESHOLD = 300 * 1024 * 1024
+export const MAX_FILE_COUNT = 10
+export const MAX_TOTAL_SIZE = 200 * 1024 * 1024
+export const MEMORY_WARNING_THRESHOLD = 150 * 1024 * 1024
 
 export const DEFAULT_WATERMARK_OPACITY = 0.3
 export const DEFAULT_WATERMARK_FONT_SIZE = 60

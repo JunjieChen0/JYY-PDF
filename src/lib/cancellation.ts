@@ -9,8 +9,15 @@ export class CancellationToken {
   cancel(): void {
     if (this._isCancelled) return
     this._isCancelled = true
-    this._listeners.forEach(listener => listener())
+    const listeners = [...this._listeners]
     this._listeners = []
+    for (const listener of listeners) {
+      try {
+        listener()
+      } catch {
+        // 忽略监听器中的错误，确保所有监听器都能执行
+      }
+    }
   }
 
   throwIfCancelled(): void {

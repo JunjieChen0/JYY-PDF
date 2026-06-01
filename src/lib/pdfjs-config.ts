@@ -17,7 +17,7 @@ export function getPdfjsLib() {
 }
 
 export const PDFJS_CONFIG = {
-  cMapUrl: 'https://unpkg.com/pdfjs-dist@4.0.379/cmaps/',
+  cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/cmaps/',
   cMapPacked: true,
-  standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@4.0.379/standard_fonts/',
+  standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/standard_fonts/',
 }

@@ -69,7 +69,14 @@ function ConfettiEffect() {
 }
 
 function App() {
-  const [darkMode, setDarkMode] = useState(false)
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      return localStorage.getItem('jyy_pdf_dark_mode') === '1'
+    } catch {
+      return false
+    }
+  })
   const [showWelcome, setShowWelcome] = useState(() => {
     if (typeof window === 'undefined') return true
     try {
@@ -94,6 +101,11 @@ function App() {
       document.documentElement.classList.add('dark')
     } else {
       document.documentElement.classList.remove('dark')
+    }
+    try {
+      localStorage.setItem('jyy_pdf_dark_mode', darkMode ? '1' : '0')
+    } catch {
+      // localStorage 不可用时静默忽略
     }
   }, [darkMode])
 

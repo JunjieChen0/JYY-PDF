@@ -48,7 +48,13 @@ export function estimateTextWidth(text: string, fontSize: number): number {
 }
 
 export function yieldToMain() {
-  return new Promise(resolve => setTimeout(resolve, 0))
+  return new Promise<void>(resolve => {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => resolve())
+    } else {
+      setTimeout(resolve, 0)
+    }
+  })
 }
 
 export interface FileResult {

@@ -4,6 +4,8 @@ import type { PDFFile, ProgressCallback } from './types'
 import type { CancellationToken } from '@/lib/cancellation'
 import { checkResult } from '@/lib/pdf-helpers'
 
+const OCR_PAGE_TIMEOUT_MS = 60000
+
 export function usePDFOCR(files: PDFFile[]) {
   const ocrPDF = useCallback(async (
     fileId: string,
@@ -31,6 +33,33 @@ export function usePDFOCR(files: PDFFile[]) {
     let fullText = ''
     let currentPage = 0
 
+    const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> => {
+      let settled = false
+      let timer: ReturnType<typeof setTimeout>
+      const race = Promise.race([
+        promise,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            if (!settled) {
+              settled = true
+              reject(new Error(`${label}超时（${timeoutMs / 1000}秒）`))
+            }
+          }, timeoutMs)
+          token?.onCancel(() => {
+            if (!settled) {
+              settled = true
+              clearTimeout(timer)
+              reject(new Error('操作已取消'))
+            }
+          })
+        }),
+      ])
+      return race.finally(() => {
+        settled = true
+        clearTimeout(timer)
+      })
+    }
+
     try {
       for (let i = 1; i <= totalPages; i++) {
         token?.throwIfCancelled()
@@ -46,7 +75,11 @@ export function usePDFOCR(files: PDFFile[]) {
 
         try {
           await page.render({ canvasContext: ctx, viewport }).promise
-          const { data: { text } } = await worker.recognize(canvas)
+          const { data: { text } } = await withTimeout(
+            worker.recognize(canvas),
+            OCR_PAGE_TIMEOUT_MS,
+            `第${i}页OCR识别`
+          )
           fullText += (i > 1 ? '\n' : '') + `--- 第${i}页 ---\n${text}\n`
         } finally {
           canvas.width = 0

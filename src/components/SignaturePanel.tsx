@@ -50,18 +50,22 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
     if (!selectedFile) return
     const file = pdf.files.find(f => f.id === selectedFile)
     if (!file) return
+    let cancelled = false
     const pdfjsLib = getPdfjsLib()
     pdfjsLib.getDocument({ data: new Uint8Array(file.data), ...PDFJS_CONFIG }).promise.then(async pdfDoc => {
       try {
         const page = await pdfDoc.getPage(pageIndex + 1)
         const viewport = page.getViewport({ scale: 1 })
-        setPageSize({ width: viewport.width, height: viewport.height })
-        const thumb = await pdf.getPageThumbnail(selectedFile, pageIndex, 800)
-        setPageThumbnail(thumb)
+        if (!cancelled) {
+          setPageSize({ width: viewport.width, height: viewport.height })
+          const thumb = await pdf.getPageThumbnail(selectedFile, pageIndex, 800)
+          if (!cancelled) setPageThumbnail(thumb)
+        }
       } finally {
         pdfDoc.destroy()
       }
     }).catch((err) => {
+      if (cancelled) return
       const msg = err instanceof Error ? err.message : String(err)
       if (msg.includes('password') || msg.includes('encrypt')) {
         toast.error('PDF文件已加密，无法预览')
@@ -69,6 +73,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
         logger.warn(`PDF预览加载失败(${file.name}): ${msg}`)
       }
     })
+    return () => { cancelled = true }
   }, [selectedFile, pdf.files, pageIndex, pdf])
 
   useLayoutEffect(() => {
