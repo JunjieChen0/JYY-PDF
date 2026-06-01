@@ -22,6 +22,10 @@ export function usePDFOCR(files: PDFFile[]) {
 
     const { createWorker } = await import('tesseract.js')
     const worker = await createWorker(language, 1, {
+      workerPath: './tesseract/worker.min.js',
+      corePath: './tesseract/core/',
+      langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data',
+      gzip: true,
       logger: (m: { status: string; progress: number }) => {
         if (m.status === 'recognizing text') {
           const pageProgress = Math.round(((currentPage - 1 + m.progress) / totalPages) * 100)

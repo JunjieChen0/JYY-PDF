@@ -1,6 +1,6 @@
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { FileText, Moon, Sun } from 'lucide-react'
-import { useState, useEffect, useCallback, Suspense, lazy, useMemo } from 'react'
+import { useState, useEffect, Suspense, lazy } from 'react'
 import { Toaster } from 'sonner'
 
 const APP_VERSION = import.meta.env.APP_VERSION
@@ -26,48 +26,6 @@ const EditPanel = lazy(() => import('@/components/EditPanel').then(m => ({ defau
 const OcrPanel = lazy(() => import('@/components/OcrPanel').then(m => ({ default: m.OcrPanel })))
 const ConvertOfficePanel = lazy(() => import('@/components/ConvertOfficePanel').then(m => ({ default: m.ConvertOfficePanel })))
 
-function ConfettiEffect() {
-  const confetti = useMemo(() => Array.from({ length: 30 }, (_, i) => ({
-    id: i,
-    left: `${Math.random() * 100}%`,
-    delay: Math.random() * 3,
-    duration: 2 + Math.random() * 3,
-    color: ['#ff6b9d', '#ffd93d', '#6bcb77', '#4d96ff', '#ff6b6b', '#c084fc'][i % 6],
-    size: 6 + Math.random() * 8,
-    rotate: Math.random() * 360,
-  })), [])
-
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {confetti.map((c) => (
-        <motion.div
-          key={c.id}
-          initial={{ y: -20, opacity: 1, rotate: 0 }}
-          animate={{
-            y: '100vh',
-            opacity: [1, 1, 0],
-            rotate: c.rotate + 720,
-            x: [0, Math.random() > 0.5 ? 30 : -30, 0],
-          }}
-          transition={{
-            duration: c.duration,
-            delay: c.delay,
-            repeat: Infinity,
-            ease: 'linear',
-          }}
-          className="absolute rounded-sm"
-          style={{
-            left: c.left,
-            width: c.size,
-            height: c.size,
-            backgroundColor: c.color,
-          }}
-        />
-      ))}
-    </div>
-  )
-}
-
 function App() {
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window === 'undefined') return false
@@ -77,24 +35,7 @@ function App() {
       return false
     }
   })
-  const [showWelcome, setShowWelcome] = useState(() => {
-    if (typeof window === 'undefined') return true
-    try {
-      return !localStorage.getItem('jyy_pdf_welcome_seen')
-    } catch {
-      return true
-    }
-  })
   const pdf = usePDF()
-
-  const dismissWelcome = useCallback(() => {
-    setShowWelcome(false)
-    try {
-      localStorage.setItem('jyy_pdf_welcome_seen', '1')
-    } catch {
-      // localStorage 不可用时静默忽略
-    }
-  }, [])
 
   useEffect(() => {
     if (darkMode) {
@@ -248,69 +189,6 @@ function App() {
       </main>
 
       <Toaster position="top-center" richColors />
-
-      <AnimatePresence>
-        {showWelcome && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-            onClick={dismissWelcome}
-          >
-            <motion.div
-              initial={{ scale: 0.5, opacity: 0, y: 30 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.8, opacity: 0, y: -20 }}
-              transition={{ type: 'spring', duration: 0.6, bounce: 0.4 }}
-              className="relative bg-gradient-to-br from-pink-100 via-yellow-50 to-blue-100 dark:from-pink-950 dark:via-yellow-950 dark:to-blue-950 rounded-2xl shadow-2xl p-8 max-w-md mx-4 text-center overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ConfettiEffect />
-
-              <motion.div
-                animate={{ rotate: [0, 10, -10, 10, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 2 }}
-                className="text-6xl mb-4"
-              >
-                🎉
-              </motion.div>
-
-              <h2 className="text-2xl font-bold mb-3 bg-gradient-to-r from-pink-500 via-red-500 to-yellow-500 bg-clip-text text-transparent">
-                六一儿童节快乐！
-              </h2>
-
-              <p className="text-lg mb-2 text-foreground">
-                🎈 祝<span className="font-bold text-pink-500">瑶瑶宝宝</span>六一快乐 🎈
-              </p>
-
-              <p className="text-sm text-muted-foreground mb-6">
-                愿你永远保持童心，快乐每一天 ✨
-              </p>
-
-              <div className="flex gap-2 justify-center mb-4">
-                {['🎁', '🎀', '🌟', '🍭', '🎪'].map((emoji, i) => (
-                  <motion.span
-                    key={i}
-                    animate={{ y: [0, -8, 0] }}
-                    transition={{ duration: 0.6, delay: i * 0.1, repeat: Infinity, repeatDelay: 1.5 }}
-                    className="text-2xl"
-                  >
-                    {emoji}
-                  </motion.span>
-                ))}
-              </div>
-
-              <Button
-                onClick={dismissWelcome}
-                className="bg-gradient-to-r from-pink-500 to-yellow-500 hover:from-pink-600 hover:to-yellow-600 text-white font-semibold px-8"
-              >
-                🎊 开始使用
-              </Button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   )
 }

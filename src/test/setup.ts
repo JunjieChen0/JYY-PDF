@@ -10,6 +10,8 @@ if (typeof window !== 'undefined' && !window.electronAPI) {
     fileExists: () => Promise.resolve(false),
     fileStat: () => Promise.resolve({ error: 'electronAPI 不可用' } as unknown as { size: number; isFile: boolean; isDirectory: boolean }),
     convertWordToPdf: () => Promise.resolve({ error: 'electronAPI 不可用' }),
+    encryptPdf: () => Promise.resolve({ error: 'electronAPI 不可用' }),
+    decryptPdf: () => Promise.resolve({ error: 'electronAPI 不可用' }),
     readSystemFont: () => Promise.resolve({ error: 'electronAPI 不可用' }),
     getPathForFile: () => '',
   }

@@ -9,8 +9,9 @@ import { usePDFThumbnail } from './usePDFThumbnail'
 import { usePDFSignature } from './usePDFSignature'
 import { usePDFAnnotation } from './usePDFAnnotation'
 import { usePDFOCR } from './usePDFOCR'
+import { usePDFEncrypt } from './usePDFEncrypt'
 
-export type { PDFFile, ProgressCallback, WatermarkPosition, PageNumberPosition, Annotation } from './types'
+export type { PDFFile, ProgressCallback, WatermarkPosition, PageNumberPosition, Annotation, EncryptRestrictions } from './types'
 export type { CancellationToken } from '@/lib/cancellation'
 
 export interface UsePDFReturn {
@@ -35,6 +36,8 @@ export interface UsePDFReturn {
   ocrPDF: ReturnType<typeof usePDFOCR>['ocrPDF']
   pdfToWord: ReturnType<typeof usePDFConvert>['pdfToWord']
   wordToPdf: ReturnType<typeof usePDFConvert>['wordToPdf']
+  encryptFile: ReturnType<typeof usePDFEncrypt>['encryptFile']
+  decryptFile: ReturnType<typeof usePDFEncrypt>['decryptFile']
 }
 
 export function usePDF(): UsePDFReturn {
@@ -49,6 +52,7 @@ export function usePDF(): UsePDFReturn {
   const { addSignature } = usePDFSignature(files)
   const { addAnnotation } = usePDFAnnotation(files)
   const { ocrPDF } = usePDFOCR(files)
+  const { encryptFile, decryptFile } = usePDFEncrypt(files)
 
   return {
     files,
@@ -72,5 +76,7 @@ export function usePDF(): UsePDFReturn {
     ocrPDF,
     pdfToWord,
     wordToPdf,
+    encryptFile,
+    decryptFile,
   }
 }

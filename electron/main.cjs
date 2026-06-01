@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, session } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const { execFile } = require('child_process')
 
 const allowedPaths = new Set()
 const allowedOutputDirs = new Map()
@@ -233,8 +234,8 @@ app.whenReady().then(() => {
         ...details.responseHeaders,
         'Content-Security-Policy': [
           app.isPackaged
-            ? "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:"
-            : "default-src 'self' http://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:*; style-src 'self' 'unsafe-inline' http://localhost:*; img-src 'self' data: blob: http://localhost:*; font-src 'self' data: http://localhost:*; connect-src 'self' ws: http://localhost:*; worker-src 'self' blob: http://localhost:*"
+            ? "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net; worker-src 'self' blob:"
+            : "default-src 'self' http://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:*; style-src 'self' 'unsafe-inline' http://localhost:*; img-src 'self' data: blob: http://localhost:*; font-src 'self' data: http://localhost:*; connect-src 'self' ws: http://localhost:* https://cdn.jsdelivr.net; worker-src 'self' blob: http://localhost:*"
         ]
       }
     })
@@ -434,5 +435,118 @@ ipcMain.handle('fs:stat', async (event, filePath) => {
     }
   } catch (error) {
     return { error: error.message }
+  }
+})
+
+function getQpdfPath() {
+  const binDir = app.isPackaged
+    ? __dirname.replace(/app\.asar([\\/])/, 'app.asar.unpacked$1')
+    : __dirname
+  return path.join(binDir, 'bin', 'qpdf', 'qpdf.exe')
+}
+
+function sanitizePassword(pwd) {
+  if (typeof pwd !== 'string') return ''
+  return pwd.replace(/[\x00-\x1f]/g, '').slice(0, 256)
+}
+
+ipcMain.handle('encrypt:encryptPdf', async (event, options) => {
+  const tmpDir = app.getPath('temp')
+  const inputPath = path.join(tmpDir, `qpdf-in-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`)
+  const outputPath = path.join(tmpDir, `qpdf-out-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`)
+
+  try {
+    if (!options || typeof options !== 'object') throw new Error('Invalid options')
+    if (!options.data || !(options.data instanceof Uint8Array)) throw new Error('Invalid PDF data')
+    if (!options.userPassword && !options.ownerPassword) throw new Error('请至少设置用户密码或所有者密码')
+
+    const keyLength = options.keyLength || 256
+    if (![40, 128, 256].includes(keyLength)) throw new Error('不支持的密钥长度')
+    const userPassword = sanitizePassword(options.userPassword || '')
+    const ownerPassword = sanitizePassword(options.ownerPassword || '')
+
+    await fs.promises.writeFile(inputPath, Buffer.from(options.data))
+
+    const args = [
+      '--encrypt', userPassword, ownerPassword, String(keyLength),
+    ]
+
+    if (keyLength === 128) {
+      if (options.restrictions) {
+        if (options.restrictions.print) args.push(`--print=${options.restrictions.print}`)
+        if (options.restrictions.modify) args.push(`--modify=${options.restrictions.modify}`)
+        if (options.restrictions.extract) args.push(`--extract=${options.restrictions.extract}`)
+        if (options.restrictions.useAes === 'y') args.push('--use-aes=y')
+        if (options.restrictions.accessibility === 'n') args.push('--accessibility=n')
+      }
+    } else if (keyLength === 256) {
+      if (options.restrictions) {
+        if (options.restrictions.print) args.push(`--print=${options.restrictions.print}`)
+        if (options.restrictions.modify) args.push(`--modify=${options.restrictions.modify}`)
+        if (options.restrictions.extract) args.push(`--extract=${options.restrictions.extract}`)
+        if (options.restrictions.accessibility === 'n') args.push('--accessibility=n')
+        if (options.restrictions.forceR5 === 'y') args.push('--force-R5')
+      }
+    }
+
+    args.push('--', inputPath, outputPath)
+
+    await new Promise((resolve, reject) => {
+      execFile(getQpdfPath(), args, { timeout: 30000 }, (error, stdout, stderr) => {
+        if (error) {
+          const msg = stderr?.trim() || error.message
+          reject(new Error(msg))
+        } else {
+          resolve()
+        }
+      })
+    })
+
+    const result = await fs.promises.readFile(outputPath)
+    return { data: new Uint8Array(result) }
+  } catch (error) {
+    return { error: error.message || '加密失败' }
+  } finally {
+    try { await fs.promises.unlink(inputPath) } catch {}
+    try { await fs.promises.unlink(outputPath) } catch {}
+  }
+})
+
+ipcMain.handle('encrypt:decryptPdf', async (event, options) => {
+  const tmpDir = app.getPath('temp')
+  const inputPath = path.join(tmpDir, `qpdf-in-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`)
+  const outputPath = path.join(tmpDir, `qpdf-out-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`)
+
+  try {
+    if (!options || typeof options !== 'object') throw new Error('Invalid options')
+    if (!options.data || !(options.data instanceof Uint8Array)) throw new Error('Invalid PDF data')
+    if (!options.password) throw new Error('请输入密码')
+
+    const password = sanitizePassword(options.password)
+    await fs.promises.writeFile(inputPath, Buffer.from(options.data))
+
+    const args = ['--decrypt', `--password=${password}`, '--', inputPath, outputPath]
+
+    await new Promise((resolve, reject) => {
+      execFile(getQpdfPath(), args, { timeout: 30000 }, (error, stdout, stderr) => {
+        if (error) {
+          const msg = stderr?.trim() || error.message
+          reject(new Error(msg))
+        } else {
+          resolve()
+        }
+      })
+    })
+
+    const result = await fs.promises.readFile(outputPath)
+    return { data: new Uint8Array(result) }
+  } catch (error) {
+    if (error.message?.includes('invalid password')) {
+      return { error: '密码错误，无法解密' }
+    }
+    return { error: error.message || '解密失败' }
+  } finally {
+    try { await fs.promises.unlink(inputPath) } catch {}
+    try { await fs.promises.unlink(outputPath) } catch {}
   }
 })

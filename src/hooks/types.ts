@@ -8,6 +8,28 @@ export interface PDFFile {
   data: Uint8Array
 }
 
+export interface EncryptRestrictions {
+  print?: 'full' | 'low' | 'none'
+  modify?: 'all' | 'annotate' | 'form' | 'assembly' | 'none'
+  extract?: 'y' | 'n'
+  useAes?: 'y' | 'n'
+  accessibility?: 'y' | 'n'
+  forceR5?: 'y' | 'n'
+}
+
+export interface EncryptOptions {
+  data: Uint8Array
+  userPassword: string
+  ownerPassword?: string
+  keyLength?: 40 | 128 | 256
+  restrictions?: EncryptRestrictions
+}
+
+export interface DecryptOptions {
+  data: Uint8Array
+  password: string
+}
+
 export interface ElectronAPI {
   openFile: (options?: object) => Promise<{ canceled: boolean; filePaths: string[] }>
   saveFile: (options?: object) => Promise<{ canceled: boolean; filePath: string }>
@@ -16,6 +38,8 @@ export interface ElectronAPI {
   fileExists: (filePath: string) => Promise<boolean>
   fileStat: (filePath: string) => Promise<{ size: number; isFile: boolean; isDirectory: boolean }>
   convertWordToPdf: (filePath: string) => Promise<{ data?: Uint8Array; error?: string }>
+  encryptPdf: (options: EncryptOptions) => Promise<{ data?: Uint8Array; error?: string }>
+  decryptPdf: (options: DecryptOptions) => Promise<{ data?: Uint8Array; error?: string }>
   readSystemFont: (fontName: string) => Promise<Uint8Array | FileResult>
   getPathForFile: (file: File) => string
 }
