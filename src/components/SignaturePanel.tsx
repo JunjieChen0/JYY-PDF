@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import type { UsePDFReturn } from '@/hooks/usePDF'
 import { createCancellationToken, CancelledError } from '@/lib/cancellation'
 import { getPdfjsLib } from '@/lib/pdfjs-config'
+import { logger } from '@/lib/logger'
 
 interface SignaturePanelProps {
   pdf: UsePDFReturn
@@ -50,7 +51,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
     const file = pdf.files.find(f => f.id === selectedFile)
     if (!file) return
     const pdfjsLib = getPdfjsLib()
-    pdfjsLib.getDocument({ data: file.data }).promise.then(async pdfDoc => {
+    pdfjsLib.getDocument({ data: new Uint8Array(file.data) }).promise.then(async pdfDoc => {
       try {
         const page = await pdfDoc.getPage(pageIndex + 1)
         const viewport = page.getViewport({ scale: 1 })
@@ -60,8 +61,13 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
       } finally {
         pdfDoc.destroy()
       }
-    }).catch(() => {
-      toast.error('PDF页面加载失败，请检查文件是否损坏')
+    }).catch((err) => {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('password') || msg.includes('encrypt')) {
+        toast.error('PDF文件已加密，无法预览')
+      } else {
+        logger.warn(`PDF预览加载失败(${file.name}): ${msg}`)
+      }
     })
   }, [selectedFile, pdf.files, pageIndex, pdf])
 

@@ -13,7 +13,7 @@ export function usePDFThumbnail(files: PDFFile[]) {
 
     try {
       const pdfjsLib = getPdfjsLib()
-      const pdf = await pdfjsLib.getDocument({ data: file.data }).promise
+      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(file.data) }).promise
       try {
         const page = await pdf.getPage(pageIndex + 1)
 

@@ -43,7 +43,7 @@ export function usePDFSignature(files: PDFFile[]) {
     token?.throwIfCancelled()
     onProgress?.(20)
 
-    const pdfDoc = await PDFDocument.load(file.data, { ignoreEncryption: true })
+    const pdfDoc = await PDFDocument.load(new Uint8Array(file.data), { ignoreEncryption: true })
     const base64 = signatureDataUrl.split(',')[1]
     let imgBytes: Uint8Array
     try {

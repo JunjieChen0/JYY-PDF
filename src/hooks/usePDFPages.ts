@@ -16,7 +16,7 @@ export function usePDFPages(files: PDFFile[]) {
     if (!file) return null
     validatePdfHeader(file.data)
 
-    const pdfDoc = await PDFDocument.load(file.data, { ignoreEncryption: true })
+    const pdfDoc = await PDFDocument.load(new Uint8Array(file.data), { ignoreEncryption: true })
     const maxPages = pdfDoc.getPageCount()
     const pages = getPageRange(rangeStr, maxPages)
 
@@ -62,7 +62,7 @@ export function usePDFPages(files: PDFFile[]) {
     if (!file) return null
     validatePdfHeader(file.data)
 
-    const pdfDoc = await PDFDocument.load(file.data, { ignoreEncryption: true })
+    const pdfDoc = await PDFDocument.load(new Uint8Array(file.data), { ignoreEncryption: true })
     const maxPages = pdfDoc.getPageCount()
     const pages = getPageRange(rangeStr, maxPages)
 
@@ -102,7 +102,7 @@ export function usePDFPages(files: PDFFile[]) {
     if (!file) return null
     validatePdfHeader(file.data)
 
-    const pdfDoc = await PDFDocument.load(file.data, { ignoreEncryption: true })
+    const pdfDoc = await PDFDocument.load(new Uint8Array(file.data), { ignoreEncryption: true })
     const maxPages = pdfDoc.getPageCount()
     const pagesToDelete = new Set(getPageRange(rangeStr, maxPages))
 
@@ -145,7 +145,7 @@ export function usePDFPages(files: PDFFile[]) {
     if (!file) return null
     validatePdfHeader(file.data)
 
-    const pdfDoc = await PDFDocument.load(file.data, { ignoreEncryption: true })
+    const pdfDoc = await PDFDocument.load(new Uint8Array(file.data), { ignoreEncryption: true })
     const maxPages = pdfDoc.getPageCount()
     const pages = getPageRange(rangeStr, maxPages)
 

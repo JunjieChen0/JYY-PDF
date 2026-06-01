@@ -31,10 +31,8 @@ export function usePDFConvert(files: PDFFile[]) {
     if (result.canceled || !result.filePath) return null
 
     const { dir, baseName, sep } = splitFilePath(result.filePath)
-    const buffer = file.data
-
     const pdfjsLib = getPdfjsLib()
-    const pdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise
+    const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(file.data) }).promise
     const pages = pdfDoc.numPages
 
     try {
@@ -97,10 +95,8 @@ export function usePDFConvert(files: PDFFile[]) {
     })
     if (result.canceled || !result.filePath) return null
 
-    const buffer = file.data
-
     const pdfjsLib = getPdfjsLib()
-    const pdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise
+    const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(file.data) }).promise
     const pages = pdfDoc.numPages
     let fullText = ''
 

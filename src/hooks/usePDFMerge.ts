@@ -20,7 +20,7 @@ export function usePDFMerge(files: PDFFile[]) {
       token?.throwIfCancelled()
       const file = files[i]
       validatePdfHeader(file.data)
-      const pdfDoc = await PDFDocument.load(file.data, { ignoreEncryption: true })
+      const pdfDoc = await PDFDocument.load(new Uint8Array(file.data), { ignoreEncryption: true })
       const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices())
       copiedPages.forEach(page => mergedPdf.addPage(page))
 

@@ -34,7 +34,7 @@ export function usePDFPageNumbers(files: PDFFile[]) {
     if (result.canceled || !result.filePath) return null
 
     validatePdfHeader(file.data)
-    const pdfDoc = await PDFDocument.load(file.data)
+    const pdfDoc = await PDFDocument.load(new Uint8Array(file.data), { ignoreEncryption: true })
     const pages = pdfDoc.getPages()
     const totalPages = pages.length
     const {

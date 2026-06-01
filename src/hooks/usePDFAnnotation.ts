@@ -23,7 +23,7 @@ export function usePDFAnnotation(files: PDFFile[]) {
     token?.throwIfCancelled()
     onProgress?.(10)
 
-    const pdfDoc = await PDFDocument.load(file.data, { ignoreEncryption: true })
+    const pdfDoc = await PDFDocument.load(new Uint8Array(file.data), { ignoreEncryption: true })
     const totalPages = pdfDoc.getPageCount()
 
     for (let i = 0; i < annotations.length; i++) {
