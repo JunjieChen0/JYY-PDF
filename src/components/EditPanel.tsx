@@ -12,6 +12,7 @@ import type { UsePDFReturn } from '@/hooks/usePDF'
 import type { Annotation } from '@/hooks/types'
 import { createCancellationToken, CancelledError } from '@/lib/cancellation'
 import { getPdfjsLib } from '@/lib/pdfjs-config'
+import { logger } from '@/lib/logger'
 
 interface EditPanelProps {
   pdf: UsePDFReturn
@@ -53,7 +54,7 @@ export function EditPanel({ pdf }: EditPanelProps) {
     if (!selectedFileData) return
     try {
       const pdfjsLib = getPdfjsLib()
-      const pdfDoc = await pdfjsLib.getDocument({ data: selectedFileData.data }).promise
+      const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(selectedFileData.data) }).promise
       const page = await pdfDoc.getPage(pageIndex + 1)
       const { width, height } = page.getViewport({ scale: 1 })
       pdfDoc.destroy()
@@ -67,8 +68,14 @@ export function EditPanel({ pdf }: EditPanelProps) {
         ? { ...base, type: 'highlight', width: 150, height: 20, opacity: 0.3 }
         : { ...base, type: tool, width: 100, height: 80 }
       setAnnotations(prev => [...prev, ann])
-    } catch {
-      toast.error('获取页面尺寸失败')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('password') || msg.includes('encrypt')) {
+        toast.error('PDF文件已加密，无法编辑')
+      } else {
+        logger.warn(`编辑面板页面加载失败: ${msg}`)
+        toast.error('获取页面尺寸失败，请检查PDF是否有效')
+      }
     }
   }
 

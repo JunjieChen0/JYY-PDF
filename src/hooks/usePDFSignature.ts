@@ -22,10 +22,11 @@ export function usePDFSignature(files: PDFFile[]) {
     }
 
     const checkChunkSize = 4 * 1024 * 1024
+    const dataCopy = new Uint8Array(file.data)
     const decoder = new TextDecoder('utf-8', { fatal: false })
     let jsDetected = false
-    for (let offset = 0; offset < file.data.length; offset += checkChunkSize) {
-      const chunk = decoder.decode(file.data.slice(offset, offset + checkChunkSize), { stream: true })
+    for (let offset = 0; offset < dataCopy.length; offset += checkChunkSize) {
+      const chunk = decoder.decode(dataCopy.slice(offset, offset + checkChunkSize), { stream: true })
       if (/\/JavaScript\s*[[\]/]>]/i.test(chunk) || /\/JS\s*[[\]/]>]/i.test(chunk) || /\/S\s*\/JavaScript/i.test(chunk)) {
         jsDetected = true
         break
