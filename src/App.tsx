@@ -2,6 +2,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { FileText, Moon, Sun } from 'lucide-react'
 import { useState, useEffect, useCallback, Suspense, lazy, useMemo } from 'react'
 import { Toaster } from 'sonner'
+
+const APP_VERSION = '2.5.0'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
@@ -109,6 +111,7 @@ function App() {
               <FileText className="h-6 w-6" />
             </motion.div>
             <h1 className="text-lg font-bold">JYY PDF</h1>
+            <span className="text-sm text-muted-foreground font-medium ml-1">v{APP_VERSION}</span>
           </div>
           <div className="flex items-center gap-2">
             <Button
