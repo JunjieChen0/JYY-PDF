@@ -2,8 +2,8 @@ const { app, BrowserWindow, ipcMain, dialog, session } = require('electron')
 const path = require('path')
 const fs = require('fs')
 
-// 允许的文件路径列表，只有用户通过系统对话框选择的路径才允许读写
 const allowedPaths = new Set()
+const allowedOutputDirs = new Map()
 
 function getUserDocsPath() {
   return app.getPath('documents')
@@ -17,15 +17,21 @@ function isPathSafe(filePath) {
   return true
 }
 
-// 检查路径是否在允许列表中
-function isPathAllowed(filePath) {
+const ALLOWED_WRITE_EXTS = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.txt', '.docx', '.doc'])
+const ALLOWED_READ_EXTS = new Set(['.pdf', '.png', '.jpg', '.jpeg'])
+
+function isPathAllowed(filePath, mode) {
   const normalized = path.normalize(filePath)
   if (allowedPaths.has(normalized)) return true
-  const parentDir = path.dirname(normalized)
-  for (const allowedPath of allowedPaths) {
-    if (path.dirname(allowedPath) === parentDir) return true
-  }
-  return false
+  const ext = path.extname(normalized).toLowerCase()
+  const basename = path.basename(normalized, ext)
+  const dir = path.dirname(normalized)
+  const dirInfo = allowedOutputDirs.get(dir)
+  if (!dirInfo) return false
+  if (mode === 'write' && !ALLOWED_WRITE_EXTS.has(ext)) return false
+  if (mode === 'read' && !ALLOWED_READ_EXTS.has(ext)) return false
+  if (!basename.startsWith(dirInfo.prefix)) return false
+  return true
 }
 
 // 检查文件是否是符号链接
@@ -36,6 +42,26 @@ async function isSymlink(filePath) {
   } catch {
     return false
   }
+}
+
+const ALLOWED_HTML_TAGS = new Set([
+  'p', 'br', 'hr', 'strong', 'em', 'b', 'i', 'u', 's', 'sub', 'sup',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+  'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'caption', 'colgroup', 'col',
+  'img', 'a', 'span', 'div', 'blockquote', 'pre', 'code', 'figure', 'figcaption',
+  'section', 'article', 'header', 'footer', 'main', 'aside', 'nav',
+])
+
+function sanitizeHtml(html) {
+  return html.replace(/<\/?(\w+)[^>]*>/gi, (match, tagName) => {
+    const tag = tagName.toLowerCase()
+    if (!ALLOWED_HTML_TAGS.has(tag)) return ''
+    const safeAttrHtml = match.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|\S+)/gi, '')
+      .replace(/\bhref\s*=\s*["']?\s*(?:javascript|vbscript|data)\s*:/gi, 'href="#"')
+      .replace(/\bsrc\s*=\s*["']?\s*(?:javascript|vbscript)\s*:/gi, '')
+    return safeAttrHtml
+  })
 }
 
 function sanitizeDefaultPath(input) {
@@ -51,29 +77,14 @@ ipcMain.handle('convert:wordToPdf', async (event, filePath) => {
   let win = null
   try {
     if (!isPathSafe(filePath)) throw new Error('Invalid file path')
-    if (!isPathAllowed(filePath)) throw new Error('Access denied to this file path')
+    if (!isPathAllowed(filePath, 'read')) throw new Error('Access denied to this file path')
     if (await isSymlink(filePath)) throw new Error('Symbolic links are not allowed')
 
     const mammoth = require('mammoth')
     const result = await mammoth.convertToHtml({ path: filePath })
     const html = result.value
 
-    const sanitizedHtml = html
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-      .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
-      .replace(/<embed\b[^>]*>/gi, '')
-      .replace(/<applet\b[^<]*(?:(?!<\/applet>)<[^<]*)*<\/applet>/gi, '')
-      .replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '')
-      .replace(/<input\b[^>]*>/gi, '')
-      .replace(/<textarea\b[^<]*(?:(?!<\/textarea>)<[^<]*)*<\/textarea>/gi, '')
-      .replace(/<select\b[^<]*(?:(?!<\/select>)<[^<]*)*<\/select>/gi, '')
-      .replace(/<button\b[^<]*(?:(?!<\/button>)<[^<]*)*<\/button>/gi, '')
-      .replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '')
-      .replace(/\bon\w+\s*=\s*\S+/gi, '')
-      .replace(/javascript\s*:/gi, '')
-      .replace(/vbscript\s*:/gi, '')
-      .replace(/data\s*:[^,]*script/gi, '')
+    const sanitizedHtml = sanitizeHtml(html)
 
     win = new BrowserWindow({
       show: false,
@@ -101,7 +112,13 @@ ipcMain.handle('convert:wordToPdf', async (event, filePath) => {
 
     return { data: new Uint8Array(pdfData) }
   } catch (error) {
-    return { error: error.message }
+    if (error.message?.includes('mammoth') || error.message?.includes('convertToHtml')) {
+      return { error: 'Word 文档解析失败，请检查文件格式是否正确' }
+    } else if (error.message?.includes('printToPDF')) {
+      return { error: 'PDF 生成失败，请重试' }
+    } else {
+      return { error: `转换失败: ${error.message}` }
+    }
   } finally {
     if (win) win.destroy()
   }
@@ -127,6 +144,7 @@ function createWindow() {
 
   win.on('closed', () => {
     allowedPaths.clear()
+    allowedOutputDirs.clear()
   })
 
   if (!app.isPackaged) {
@@ -201,7 +219,13 @@ ipcMain.handle('dialog:saveFile', async (event, options) => {
   }
   const result = await dialog.showSaveDialog(safeOptions)
   if (!result.canceled && result.filePath) {
-    allowedPaths.add(path.normalize(result.filePath))
+    const normalized = path.normalize(result.filePath)
+    allowedPaths.add(normalized)
+    const ext = path.extname(normalized).toLowerCase()
+    const basename = path.basename(normalized, ext)
+    const dir = path.dirname(normalized)
+    const prefix = basename.replace(/_[^_]*$/, '')
+    allowedOutputDirs.set(dir, { prefix })
   }
   return result
 })
@@ -211,17 +235,11 @@ ipcMain.handle('fs:readFile', async (event, filePath) => {
     if (!isPathSafe(filePath)) {
       throw new Error('Invalid file path')
     }
-    if (!isPathAllowed(filePath)) {
+    if (!isPathAllowed(filePath, 'read')) {
       throw new Error('Access denied to this file path')
     }
-    // 禁止读取符号链接
     if (await isSymlink(filePath)) {
       throw new Error('Symbolic links are not allowed')
-    }
-    const ext = path.extname(filePath).toLowerCase()
-    const allowedReadExts = ['.pdf', '.png', '.jpg', '.jpeg']
-    if (!allowedReadExts.includes(ext)) {
-      throw new Error('File type not allowed')
     }
     const buffer = await fs.promises.readFile(filePath)
     return buffer
@@ -235,17 +253,11 @@ ipcMain.handle('fs:writeFile', async (event, filePath, buffer) => {
     if (!isPathSafe(filePath)) {
       throw new Error('Invalid file path')
     }
-    if (!isPathAllowed(filePath)) {
+    if (!isPathAllowed(filePath, 'write')) {
       throw new Error('Access denied to this file path')
     }
-    // 禁止写入符号链接
     if (await isSymlink(filePath)) {
       throw new Error('Symbolic links are not allowed')
-    }
-    const ext = path.extname(filePath).toLowerCase()
-    const allowedExts = ['.pdf', '.png', '.jpg', '.jpeg', '.txt', '.docx', '.doc']
-    if (!allowedExts.includes(ext)) {
-      throw new Error('Invalid file extension')
     }
     const dir = path.dirname(filePath)
     if (!fs.existsSync(dir)) {
@@ -263,7 +275,7 @@ ipcMain.handle('fs:exists', async (event, filePath) => {
     if (!isPathSafe(filePath)) {
       return false
     }
-    if (!isPathAllowed(filePath)) {
+    if (!isPathAllowed(filePath, 'read')) {
       return false
     }
     if (await isSymlink(filePath)) {
@@ -280,7 +292,7 @@ ipcMain.handle('fs:stat', async (event, filePath) => {
     if (!isPathSafe(filePath)) {
       throw new Error('Invalid file path')
     }
-    if (!isPathAllowed(filePath)) {
+    if (!isPathAllowed(filePath, 'read')) {
       throw new Error('Access denied to this file path')
     }
     if (await isSymlink(filePath)) {

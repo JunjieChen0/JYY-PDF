@@ -88,9 +88,9 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
   }, [getCanvasPos])
 
   // 简单节流函数
-  const throttle = (func: Function, delay: number) => {
+  const throttle = <T extends (...args: any[]) => any>(func: T, delay: number) => {
     let lastCall = 0
-    return (...args: any[]) => {
+    return (...args: Parameters<T>) => {
       const now = Date.now()
       if (now - lastCall >= delay) {
         lastCall = now

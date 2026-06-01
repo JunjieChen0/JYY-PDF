@@ -64,3 +64,10 @@ export function checkResult(result: unknown, errorMsg: string): void {
     throw new Error(`${errorMsg}${result.error}`)
   }
 }
+
+export function validatePdfHeader(data: Uint8Array): void {
+  const header = new TextDecoder().decode(data.slice(0, 5))
+  if (header !== '%PDF-') {
+    throw new Error('不是有效的PDF文档，请检查文件是否损坏')
+  }
+}

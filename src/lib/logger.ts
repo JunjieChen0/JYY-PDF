@@ -29,12 +29,30 @@ function saveLogs(logs: LogEntry[]): void {
   }
 }
 
+function truncateDetails(details: unknown): unknown {
+  if (details instanceof Error) {
+    return { message: details.message, stack: details.stack?.substring(0, 500) }
+  }
+  if (typeof details === 'string') {
+    return details.length > 1000 ? details.substring(0, 1000) + '...' : details
+  }
+  try {
+    const json = JSON.stringify(details)
+    if (json.length > 2000) {
+      return json.substring(0, 2000) + '...'
+    }
+    return details
+  } catch {
+    return '[Object]'
+  }
+}
+
 function addLog(level: LogEntry['level'], message: string, details?: unknown): void {
   const entry: LogEntry = {
     timestamp: new Date().toISOString(),
     level,
     message,
-    details,
+    details: details ? truncateDetails(details) : undefined,
   }
   
   console[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log'](
