@@ -9,20 +9,9 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { UsePDFReturn } from '@/hooks/usePDF'
+import type { Annotation } from '@/hooks/types'
 import { createCancellationToken, CancelledError } from '@/lib/cancellation'
-
-interface Annotation {
-  pageIndex: number
-  type: 'text' | 'rect' | 'highlight' | 'circle'
-  x: number
-  y: number
-  width?: number
-  height?: number
-  text?: string
-  color?: string
-  opacity?: number
-  fontSize?: number
-}
+import { getPdfjsLib } from '@/lib/pdfjs-config'
 
 interface EditPanelProps {
   pdf: UsePDFReturn
@@ -60,17 +49,27 @@ export function EditPanel({ pdf }: EditPanelProps) {
     }
   }, [selectedFile, selectedFileData, pageIndex])
 
-  const addAnnotation = () => {
+  const addAnnotation = async () => {
     if (!selectedFileData) return
-    const centerX = 200 + Math.random() * (Math.max(200, 200))
-    const centerY = 300 + Math.random() * (Math.max(200, 200))
-    const base = { pageIndex, color, x: centerX, y: centerY }
-    const ann: Annotation = tool === 'text'
-      ? { ...base, type: 'text', text, fontSize }
-      : tool === 'highlight'
-      ? { ...base, type: 'highlight', width: 150, height: 20, opacity: 0.3 }
-      : { ...base, type: tool, width: 100, height: 80 }
-    setAnnotations(prev => [...prev, ann])
+    try {
+      const pdfjsLib = getPdfjsLib()
+      const pdfDoc = await pdfjsLib.getDocument({ data: selectedFileData.data }).promise
+      const page = await pdfDoc.getPage(pageIndex + 1)
+      const { width, height } = page.getViewport({ scale: 1 })
+      pdfDoc.destroy()
+      
+      const centerX = width / 2 - 50
+      const centerY = height / 2 - 40
+      const base = { pageIndex, color, x: centerX, y: centerY }
+      const ann: Annotation = tool === 'text'
+        ? { ...base, type: 'text', text, fontSize }
+        : tool === 'highlight'
+        ? { ...base, type: 'highlight', width: 150, height: 20, opacity: 0.3 }
+        : { ...base, type: tool, width: 100, height: 80 }
+      setAnnotations(prev => [...prev, ann])
+    } catch {
+      toast.error('获取页面尺寸失败')
+    }
   }
 
   const removeAnnotation = (index: number) => {

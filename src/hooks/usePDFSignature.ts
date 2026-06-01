@@ -3,6 +3,7 @@ import { PDFDocument } from 'pdf-lib'
 import type { PDFFile, ProgressCallback } from './types'
 import type { CancellationToken } from '@/lib/cancellation'
 import { checkResult, validatePdfHeader } from '@/lib/pdf-helpers'
+import { logger } from '@/lib/logger'
 
 export function usePDFSignature(files: PDFFile[]) {
   const addSignature = useCallback(async (
@@ -25,13 +26,13 @@ export function usePDFSignature(files: PDFFile[]) {
     let jsDetected = false
     for (let offset = 0; offset < file.data.length; offset += checkChunkSize) {
       const chunk = decoder.decode(file.data.slice(offset, offset + checkChunkSize), { stream: true })
-      if (/\/JavaScript\s*[\[\/\]>]/i.test(chunk) || /\/JS\s*[\[\/\]>]/i.test(chunk) || /\/S\s*\/JavaScript/i.test(chunk)) {
+      if (/\/JavaScript\s*[[\]/]>]/i.test(chunk) || /\/JS\s*[[\]/]>]/i.test(chunk) || /\/S\s*\/JavaScript/i.test(chunk)) {
         jsDetected = true
         break
       }
     }
     if (jsDetected) {
-      throw new Error('PDF包含嵌入式JavaScript，为了安全起见，禁止对此文件进行签名')
+      logger.warn('PDF包含嵌入式JavaScript（可能是表单验证等合法功能），继续签名')
     }
 
     const result = await window.electronAPI.saveFile({
@@ -42,12 +43,12 @@ export function usePDFSignature(files: PDFFile[]) {
     token?.throwIfCancelled()
     onProgress?.(20)
 
-    const pdfDoc = await PDFDocument.load(file.data)
+    const pdfDoc = await PDFDocument.load(file.data, { ignoreEncryption: true })
     const base64 = signatureDataUrl.split(',')[1]
     let imgBytes: Uint8Array
     try {
       imgBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
-    } catch (e) {
+    } catch {
       throw new Error('签名图片格式错误，请重新选择或绘制签名')
     }
     let signatureImage

@@ -23,11 +23,15 @@ export function usePDFAnnotation(files: PDFFile[]) {
     token?.throwIfCancelled()
     onProgress?.(10)
 
-    const pdfDoc = await PDFDocument.load(file.data)
+    const pdfDoc = await PDFDocument.load(file.data, { ignoreEncryption: true })
+    const totalPages = pdfDoc.getPageCount()
 
     for (let i = 0; i < annotations.length; i++) {
       token?.throwIfCancelled()
       const ann = annotations[i]
+      if (ann.pageIndex < 0 || ann.pageIndex >= totalPages) {
+        throw new Error(`标注页码越界（批注 #${i + 1} 指向第 ${ann.pageIndex + 1} 页，文档共 ${totalPages} 页）`)
+      }
       const page = pdfDoc.getPage(ann.pageIndex)
       const color = hexToRgb(ann.color || '#000000')
       const opacity = ann.opacity ?? 1

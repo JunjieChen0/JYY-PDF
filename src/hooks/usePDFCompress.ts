@@ -17,7 +17,7 @@ export function usePDFCompress(files: PDFFile[]) {
     if (!file) return null
     validatePdfHeader(file.data)
 
-    const pdfDoc = await PDFDocument.load(file.data, { updateMetadata: true })
+    const pdfDoc = await PDFDocument.load(file.data, { ignoreEncryption: true, updateMetadata: true })
 
     onProgress?.(20)
 

@@ -5,6 +5,7 @@ import type { PDFFile, ProgressCallback } from './types'
 import type { CancellationToken } from '@/lib/cancellation'
 import { yieldToMain, checkResult } from '@/lib/pdf-helpers'
 import { PDF_TO_IMAGE_SCALE, JPG_QUALITY } from '@/lib/constants'
+import { splitFilePath, buildOutputPath } from '@/lib/utils'
 
 interface TextItem {
   str: string
@@ -29,9 +30,7 @@ export function usePDFConvert(files: PDFFile[]) {
     })
     if (result.canceled || !result.filePath) return null
 
-    const lastSlash = Math.max(result.filePath.lastIndexOf('\\'), result.filePath.lastIndexOf('/'))
-    const dir = result.filePath.substring(0, lastSlash)
-    const baseName = result.filePath.substring(lastSlash + 1).replace(/\.[^.]+$/, '').replace(/_page\d+$/, '')
+    const { dir, baseName, sep } = splitFilePath(result.filePath)
     const buffer = file.data
 
     const pdfjsLib = getPdfjsLib()
@@ -53,38 +52,35 @@ export function usePDFConvert(files: PDFFile[]) {
         canvas.width = viewport.width
         canvas.height = viewport.height
 
-        await page.render({
-          canvasContext: context,
-          viewport,
-        }).promise
-
-        const mimeType = format === 'png' ? 'image/png' : 'image/jpeg'
-        const quality = format === 'jpg' ? JPG_QUALITY : undefined
-        let imgBuffer: ArrayBuffer
         try {
+          await page.render({
+            canvasContext: context,
+            viewport,
+          }).promise
+
+          const mimeType = format === 'png' ? 'image/png' : 'image/jpeg'
+          const quality = format === 'jpg' ? JPG_QUALITY : undefined
           const blob = await new Promise<Blob>((resolve, reject) => {
             canvas.toBlob((b) => {
               if (b) resolve(b)
               else reject(new Error('Canvas 导出图片失败'))
             }, mimeType, quality)
           })
-          imgBuffer = await blob.arrayBuffer()
+          const imgBuffer = await blob.arrayBuffer()
+
+          const outputPath = buildOutputPath(dir, baseName, `_page${i}`, format, sep)
+          checkResult(await window.electronAPI.writeFile(outputPath, new Uint8Array(imgBuffer)), '写入图片失败：')
+
+          onProgress?.(Math.round((i / pages) * 100))
         } finally {
           canvas.width = 0
           canvas.height = 0
         }
-
-        const sep = dir.includes('\\') ? '\\' : '/'
-        const outputPath = `${dir}${sep}${baseName}_page${i}.${format}`
-        checkResult(await window.electronAPI.writeFile(outputPath, new Uint8Array(imgBuffer)), '写入图片失败：')
-
-        onProgress?.(Math.round((i / pages) * 100))
       }
     } finally {
       pdfDoc.destroy()
     }
 
-    const sep = dir.includes('\\') ? '\\' : '/'
     return `${dir}${sep}${baseName}`
   }, [files])
 

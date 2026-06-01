@@ -1,20 +1,20 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import type { PDFFile } from '@/hooks/usePDF'
 
 export function useFileSelection(files: PDFFile[], multiple: boolean = true) {
-  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
+  const [rawSelected, setRawSelected] = useState<Set<string>>(new Set())
 
-  useEffect(() => {
-    setSelectedFiles(prev => {
-      const validIds = new Set(files.map(f => f.id))
-      const next = new Set([...prev].filter(id => validIds.has(id)))
-      if (next.size === prev.size) return prev
-      return next
-    })
-  }, [files])
+  const validIds = useMemo(() => new Set(files.map(f => f.id)), [files])
+  const selectedFiles = useMemo(() => {
+    const next = new Set<string>()
+    for (const id of rawSelected) {
+      if (validIds.has(id)) next.add(id)
+    }
+    return next
+  }, [rawSelected, validIds])
 
   const toggleFile = useCallback((fileId: string) => {
-    setSelectedFiles(prev => {
+    setRawSelected(prev => {
       const next = new Set(prev)
       if (next.has(fileId)) {
         next.delete(fileId)
@@ -29,21 +29,17 @@ export function useFileSelection(files: PDFFile[], multiple: boolean = true) {
   }, [multiple])
 
   const toggleAll = useCallback(() => {
-    setSelectedFiles(prev => {
-      if (prev.size === files.length) {
+    setRawSelected(prev => {
+      if (prev.size === validIds.size) {
         return new Set()
       }
-      return new Set(files.map(f => f.id))
+      return new Set(validIds)
     })
-  }, [files])
+  }, [validIds])
 
   const clearSelection = useCallback(() => {
-    setSelectedFiles(new Set())
+    setRawSelected(new Set())
   }, [])
-
-  const isSelected = useCallback((fileId: string) => {
-    return selectedFiles.has(fileId)
-  }, [selectedFiles])
 
   return {
     selectedFiles,
@@ -52,6 +48,6 @@ export function useFileSelection(files: PDFFile[], multiple: boolean = true) {
     toggleFile,
     toggleAll,
     clearSelection,
-    isSelected,
+    isSelected: (fileId: string) => selectedFiles.has(fileId),
   }
 }

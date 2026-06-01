@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { FileText, Moon, Sun } from 'lucide-react'
-import { useState, useEffect, Suspense, lazy } from 'react'
+import { useState, useEffect, useCallback, Suspense, lazy, useMemo } from 'react'
 import { Toaster } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -25,7 +25,7 @@ const OcrPanel = lazy(() => import('@/components/OcrPanel').then(m => ({ default
 const ConvertOfficePanel = lazy(() => import('@/components/ConvertOfficePanel').then(m => ({ default: m.ConvertOfficePanel })))
 
 function ConfettiEffect() {
-  const confetti = Array.from({ length: 30 }, (_, i) => ({
+  const confetti = useMemo(() => Array.from({ length: 30 }, (_, i) => ({
     id: i,
     left: `${Math.random() * 100}%`,
     delay: Math.random() * 3,
@@ -33,7 +33,7 @@ function ConfettiEffect() {
     color: ['#ff6b9d', '#ffd93d', '#6bcb77', '#4d96ff', '#ff6b6b', '#c084fc'][i % 6],
     size: 6 + Math.random() * 8,
     rotate: Math.random() * 360,
-  }))
+  })), [])
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -68,8 +68,24 @@ function ConfettiEffect() {
 
 function App() {
   const [darkMode, setDarkMode] = useState(false)
-  const [showWelcome, setShowWelcome] = useState(true)
+  const [showWelcome, setShowWelcome] = useState(() => {
+    if (typeof window === 'undefined') return true
+    try {
+      return !localStorage.getItem('jyy_pdf_welcome_seen')
+    } catch {
+      return true
+    }
+  })
   const pdf = usePDF()
+
+  const dismissWelcome = useCallback(() => {
+    setShowWelcome(false)
+    try {
+      localStorage.setItem('jyy_pdf_welcome_seen', '1')
+    } catch {
+      // localStorage 不可用时静默忽略
+    }
+  }, [])
 
   useEffect(() => {
     if (darkMode) {
@@ -224,7 +240,7 @@ function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowWelcome(false)}
+            onClick={dismissWelcome}
           >
             <motion.div
               initial={{ scale: 0.5, opacity: 0, y: 30 }}
@@ -270,7 +286,7 @@ function App() {
               </div>
 
               <Button
-                onClick={() => setShowWelcome(false)}
+                onClick={dismissWelcome}
                 className="bg-gradient-to-r from-pink-500 to-yellow-500 hover:from-pink-600 hover:to-yellow-600 text-white font-semibold px-8"
               >
                 🎊 开始使用

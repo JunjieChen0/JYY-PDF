@@ -27,9 +27,9 @@ export function CompressPanel({ pdf }: CompressPanelProps) {
   const [preserveMetadata, setPreserveMetadata] = useState(true)
 
   const levelOptions = [
-    { value: 'low', label: '轻度', desc: '保留更多细节，压缩较轻', sizeReduction: '~30%' },
-    { value: 'medium', label: '标准', desc: '平衡压缩率与质量', sizeReduction: '~60%' },
-    { value: 'high', label: '极致', desc: '最大压缩，文件最小', sizeReduction: '~80%' },
+    { value: 'low', label: '快速', desc: '保存速度快，界面响应好', sizeReduction: '约 20%' },
+    { value: 'medium', label: '均衡', desc: '平衡保存速度与响应性', sizeReduction: '约 40%' },
+    { value: 'high', label: '稳定', desc: '保存最稳定，界面可能短暂卡顿', sizeReduction: '约 60%' },
   ]
 
   const handleCompress = async () => {

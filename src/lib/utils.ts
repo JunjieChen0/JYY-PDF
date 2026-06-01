@@ -13,12 +13,31 @@ export function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
+export function splitFilePath(filePath: string): { dir: string; baseName: string; sep: string } {
+  const normalized = filePath.replace(/\\/g, '/')
+  const lastSlash = normalized.lastIndexOf('/')
+  const sep = filePath.includes('\\') ? '\\' : '/'
+  if (lastSlash === -1) {
+    return { dir: '', baseName: filePath, sep }
+  }
+  return {
+    dir: filePath.substring(0, lastSlash),
+    baseName: normalized.substring(lastSlash + 1),
+    sep,
+  }
+}
+
+export function buildOutputPath(dir: string, baseName: string, suffix: string, ext: string, sep: string): string {
+  const cleanBase = baseName.replace(/\.[^.]+$/, '').replace(/_page\d+$/, '')
+  return `${dir}${sep}${cleanBase}${suffix}.${ext}`
+}
+
 export function getPageRange(rangeStr: string, maxPages: number): number[] {
   const pages: number[] = []
   // 输入为空直接返回
   if (!rangeStr || rangeStr.trim() === '') return pages
   // 校验输入是否只有数字、-、,
-  if (!/^[0-9\-,\s]+$/.test(rangeStr)) return pages
+  if (!/^[0-9,\s-]+$/.test(rangeStr)) return pages
   
   const parts = rangeStr.split(',').map(p => p.trim())
   

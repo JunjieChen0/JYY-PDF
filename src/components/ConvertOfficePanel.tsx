@@ -38,7 +38,16 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
         token.throwIfCancelled()
         const file = files[i]
         setProgress(Math.round((i / files.length) * 100))
-        const filePath = (file as File & { path: string }).path
+        const filePath = window.electronAPI.getPathForFile(file)
+        if (!filePath) {
+          toast.error(`无法获取文件路径：${file.name}`)
+          continue
+        }
+        const ext = filePath.split('.').pop()?.toLowerCase()
+        if (!['doc', 'docx'].includes(ext || '')) {
+          toast.warning(`跳过非Word文件：${file.name}`)
+          continue
+        }
         await pdf.wordToPdf(
           filePath,
           p => setProgress(Math.round(((i + p / 100) / files.length) * 100)),

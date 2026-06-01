@@ -3,7 +3,7 @@ import { PDFDocument } from 'pdf-lib'
 import { toast } from 'sonner'
 import { logger } from '@/lib/logger'
 import { clearThumbnailCacheForFile } from '@/components/PageThumbnail'
-import { MAX_FILE_SIZE, MAX_FILE_COUNT, MAX_TOTAL_SIZE } from '@/lib/constants'
+import { MAX_FILE_SIZE, MAX_FILE_COUNT, MAX_TOTAL_SIZE, MEMORY_WARNING_THRESHOLD } from '@/lib/constants'
 import type { PDFFile } from './types'
 
 export type { PDFFile, ProgressCallback } from './types'
@@ -51,7 +51,7 @@ export function usePDFFiles() {
       }
 
       const existingKeys = new Set(prev.map(f => `${f.name}|${f.size}`))
-      const existingTotalSize = prev.reduce((sum, f) => sum + f.size, 0)
+      let existingTotalSize = prev.reduce((sum, f) => sum + f.size, 0)
       const uniqueNew = parsedFiles.filter(f => {
         if (prev.length + parsedFiles.indexOf(f) >= MAX_FILE_COUNT) {
           toast.warning(`已达到最大文件数量限制，跳过 ${f.name}`)
@@ -67,9 +67,16 @@ export function usePDFFiles() {
           return false
         }
         existingKeys.add(key)
+        existingTotalSize += f.size
         return true
       })
-      return [...prev, ...uniqueNew]
+      const next = [...prev, ...uniqueNew]
+      const totalSize = next.reduce((sum, f) => sum + f.size, 0)
+      if (totalSize > MEMORY_WARNING_THRESHOLD) {
+        const sizeMB = Math.round(totalSize / (1024 * 1024))
+        toast.warning(`当前已加载 ${sizeMB}MB 文件数据，可能影响性能。建议减少文件数量或大小。`)
+      }
+      return next
     })
   }, [])
 

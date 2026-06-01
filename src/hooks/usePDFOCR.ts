@@ -44,13 +44,14 @@ export function usePDFOCR(files: PDFFile[]) {
         const ctx = canvas.getContext('2d')
         if (!ctx) throw new Error('无法创建 Canvas 上下文')
 
-        await page.render({ canvasContext: ctx, viewport }).promise
-
-        const { data: { text } } = await worker.recognize(canvas)
-        fullText += (i > 1 ? '\n' : '') + `--- 第${i}页 ---\n${text}\n`
-
-        canvas.width = 0
-        canvas.height = 0
+        try {
+          await page.render({ canvasContext: ctx, viewport }).promise
+          const { data: { text } } = await worker.recognize(canvas)
+          fullText += (i > 1 ? '\n' : '') + `--- 第${i}页 ---\n${text}\n`
+        } finally {
+          canvas.width = 0
+          canvas.height = 0
+        }
       }
     } finally {
       await worker.terminate()

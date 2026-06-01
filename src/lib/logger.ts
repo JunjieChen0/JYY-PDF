@@ -55,6 +55,7 @@ function addLog(level: LogEntry['level'], message: string, details?: unknown): v
     details: details ? truncateDetails(details) : undefined,
   }
   
+  // eslint-disable-next-line no-console
   console[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log'](
     `[${entry.timestamp}] [${level.toUpperCase()}] ${message}`,
     details ?? ''

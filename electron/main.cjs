@@ -53,15 +53,34 @@ const ALLOWED_HTML_TAGS = new Set([
   'section', 'article', 'header', 'footer', 'main', 'aside', 'nav',
 ])
 
+const DANGEROUS_ATTRS = /\s+(?:on\w+|formaction|dynsrc|lowsrc|data-bind|v-bind|xlink:href)\s*=\s*(?:"[^"]*"|'[^']*'|\S+)/gi
+const DANGEROUS_STYLE = /expression\s*\(|behavior\s*:|-moz-binding\s*:|@import\s+/gi
+const DANGEROUS_URI_ATTRS = /\b(?:href|src|action|poster)\s*=\s*["']?\s*(?:javascript|vbscript|data)\s*:/gi
+const SVG_SCRIPT = /<\s*\/?\s*(?:script|style|iframe|object|embed|applet|form|input|textarea|select|button)\b[^>]*>/gi
+const HTML_COMMENTS = /<!--[\s\S]*?-->/g
+const SELF_CLOSING_SLASH = /<(\w+)\s*\/>/g
+
 function sanitizeHtml(html) {
-  return html.replace(/<\/?(\w+)[^>]*>/gi, (match, tagName) => {
+  let result = html
+  result = result.replace(HTML_COMMENTS, '')
+  result = result.replace(SVG_SCRIPT, '')
+  result = result.replace(/<\/?(\w[\w-]*)[^>]*\/?>/gi, (match, tagName) => {
     const tag = tagName.toLowerCase()
     if (!ALLOWED_HTML_TAGS.has(tag)) return ''
-    const safeAttrHtml = match.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|\S+)/gi, '')
-      .replace(/\bhref\s*=\s*["']?\s*(?:javascript|vbscript|data)\s*:/gi, 'href="#"')
-      .replace(/\bsrc\s*=\s*["']?\s*(?:javascript|vbscript)\s*:/gi, '')
-    return safeAttrHtml
+    let cleaned = match
+    cleaned = cleaned.replace(DANGEROUS_ATTRS, '')
+    cleaned = cleaned.replace(DANGEROUS_URI_ATTRS, (m) => m.replace(/(href|src|action|poster)\s*=\s*["']?\s*(?:javascript|vbscript|data)\s*:/gi, '$1="#"'))
+    cleaned = cleaned.replace(/\bstyle\s*=\s*"([^"]*)"/gi, (m, val) => {
+      if (DANGEROUS_STYLE.test(val)) return ''
+      return m
+    })
+    cleaned = cleaned.replace(/\bstyle\s*=\s*'([^']*)'/gi, (m, val) => {
+      if (DANGEROUS_STYLE.test(val)) return ''
+      return m
+    })
+    return cleaned
   })
+  return result
 }
 
 function sanitizeDefaultPath(input) {
@@ -117,7 +136,8 @@ ipcMain.handle('convert:wordToPdf', async (event, filePath) => {
     } else if (error.message?.includes('printToPDF')) {
       return { error: 'PDF 生成失败，请重试' }
     } else {
-      return { error: `转换失败: ${error.message}` }
+      console.error('Word to PDF conversion error:', error)
+      return { error: '转换失败，请检查文件是否损坏或格式是否支持' }
     }
   } finally {
     if (win) win.destroy()

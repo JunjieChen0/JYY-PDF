@@ -43,6 +43,7 @@ export function FileList({ files, onRemove, onReorder, getThumbnail }: FileListP
 
   return (
     <ScrollArea className="flex-1">
+      <div>
         {files.map((file, index) => (
           <div
             key={file.id}
@@ -78,6 +79,7 @@ export function FileList({ files, onRemove, onReorder, getThumbnail }: FileListP
             </Button>
           </div>
         ))}
+      </div>
     </ScrollArea>
   )
 }

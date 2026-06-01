@@ -37,6 +37,9 @@ export function WatermarkPanel({ pdf }: WatermarkPanelProps) {
   const handleSelectImage = async () => {
     const result = await window.electronAPI.openFile({
       defaultPath: '',
+      filters: [
+        { name: '图片文件', extensions: ['png', 'jpg', 'jpeg'] },
+      ],
     })
     if (!result.canceled && result.filePaths.length > 0) {
       const filePath = result.filePaths[0]

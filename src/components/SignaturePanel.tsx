@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Pen, Upload, Loader2, RotateCcw, Check } from 'lucide-react'
 import { toast } from 'sonner'
@@ -55,7 +55,6 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
         const page = await pdfDoc.getPage(pageIndex + 1)
         const viewport = page.getViewport({ scale: 1 })
         setPageSize({ width: viewport.width, height: viewport.height })
-        // 加载页面缩略图
         const thumb = await pdf.getPageThumbnail(selectedFile, pageIndex, 800)
         setPageThumbnail(thumb)
       } finally {
@@ -66,14 +65,26 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
     })
   }, [selectedFile, pdf.files, pageIndex, pdf])
 
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const dpr = window.devicePixelRatio || 1
+    const rect = canvas.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return
+    canvas.width = Math.round(rect.width * dpr)
+    canvas.height = Math.round(rect.height * dpr)
+    const ctx = canvas.getContext('2d')
+    if (ctx) ctx.scale(dpr, dpr)
+  }, [step])
+
   const getCanvasPos = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current!
     const rect = canvas.getBoundingClientRect()
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
     return {
-      x: (clientX - rect.left) * (canvas.width / rect.width),
-      y: (clientY - rect.top) * (canvas.height / rect.height),
+      x: clientX - rect.left,
+      y: clientY - rect.top,
     }
   }, [])
 
@@ -87,20 +98,12 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
     ctx.moveTo(x, y)
   }, [getCanvasPos])
 
-  // 简单节流函数
-  const throttle = <T extends (...args: any[]) => any>(func: T, delay: number) => {
-    let lastCall = 0
-    return (...args: Parameters<T>) => {
-      const now = Date.now()
-      if (now - lastCall >= delay) {
-        lastCall = now
-        func(...args)
-      }
-    }
-  }
-
-  const draw = useCallback(throttle((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const lastDrawCallRef = useRef(0)
+  const draw = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return
+    const now = Date.now()
+    if (now - lastDrawCallRef.current < 16) return
+    lastDrawCallRef.current = now
     e.preventDefault()
     const ctx = canvasRef.current!.getContext('2d')!
     const { x, y } = getCanvasPos(e)
@@ -110,7 +113,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
     ctx.strokeStyle = '#1a1a2e'
     ctx.lineTo(x, y)
     ctx.stroke()
-  }, 16), [isDrawing, getCanvasPos]) // 约60fps的节流
+  }, [isDrawing, getCanvasPos])
 
   const endDraw = useCallback(() => setIsDrawing(false), [])
 
@@ -249,7 +252,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
     } finally {
       setIsProcessing(false)
     }
-  }, [selectedFile, signatureDataUrl, pageIndex, signPos, signWidth, pdf, clearCanvas])
+  }, [selectedFile, signatureDataUrl, pageIndex, signPos, signWidth, pageSize.width, pageSize.height, pdf, clearCanvas])
 
   return (
     <Card>

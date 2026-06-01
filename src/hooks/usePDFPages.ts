@@ -16,7 +16,7 @@ export function usePDFPages(files: PDFFile[]) {
     if (!file) return null
     validatePdfHeader(file.data)
 
-    const pdfDoc = await PDFDocument.load(file.data)
+    const pdfDoc = await PDFDocument.load(file.data, { ignoreEncryption: true })
     const maxPages = pdfDoc.getPageCount()
     const pages = getPageRange(rangeStr, maxPages)
 
@@ -62,9 +62,11 @@ export function usePDFPages(files: PDFFile[]) {
     if (!file) return null
     validatePdfHeader(file.data)
 
-    const pdfDoc = await PDFDocument.load(file.data)
+    const pdfDoc = await PDFDocument.load(file.data, { ignoreEncryption: true })
     const maxPages = pdfDoc.getPageCount()
     const pages = getPageRange(rangeStr, maxPages)
+
+    if (pages.length === 0) return null
 
     const result = await window.electronAPI.saveFile({
       defaultPath: `${file.name.replace(/\.pdf$/i, '')}_rotated.pdf`,
@@ -72,11 +74,13 @@ export function usePDFPages(files: PDFFile[]) {
 
     if (result.canceled || !result.filePath) return null
 
+    const normalizedAngle = ((angle % 360) + 360) % 360
     for (let i = 0; i < pages.length; i++) {
       token?.throwIfCancelled()
       const page = pdfDoc.getPage(pages[i])
       const currentRotation = page.getRotation().angle
-      page.setRotation(degrees(currentRotation + angle))
+      const newRotation = (currentRotation + normalizedAngle) % 360
+      page.setRotation(degrees(newRotation))
       onProgress?.(Math.round(((i + 1) / pages.length) * 100))
     }
 
@@ -98,9 +102,14 @@ export function usePDFPages(files: PDFFile[]) {
     if (!file) return null
     validatePdfHeader(file.data)
 
-    const pdfDoc = await PDFDocument.load(file.data)
+    const pdfDoc = await PDFDocument.load(file.data, { ignoreEncryption: true })
     const maxPages = pdfDoc.getPageCount()
     const pagesToDelete = new Set(getPageRange(rangeStr, maxPages))
+
+    if (pagesToDelete.size === 0) return null
+    if (pagesToDelete.size >= maxPages) {
+      throw new Error('不能删除文档的全部页面')
+    }
 
     const result = await window.electronAPI.saveFile({
       defaultPath: `${file.name.replace(/\.pdf$/i, '')}_deleted.pdf`,
@@ -136,7 +145,7 @@ export function usePDFPages(files: PDFFile[]) {
     if (!file) return null
     validatePdfHeader(file.data)
 
-    const pdfDoc = await PDFDocument.load(file.data)
+    const pdfDoc = await PDFDocument.load(file.data, { ignoreEncryption: true })
     const maxPages = pdfDoc.getPageCount()
     const pages = getPageRange(rangeStr, maxPages)
 
