@@ -1,0 +1,23 @@
+export const MAX_FILE_SIZE = 100 * 1024 * 1024
+export const MAX_FILE_COUNT = 20
+export const MAX_TOTAL_SIZE = 500 * 1024 * 1024
+
+export const DEFAULT_WATERMARK_OPACITY = 0.3
+export const DEFAULT_WATERMARK_FONT_SIZE = 60
+export const DEFAULT_WATERMARK_ROTATE = -45
+export const DEFAULT_WATERMARK_GAP = 200
+export const DEFAULT_WATERMARK_IMAGE_GAP = 300
+
+export const DEFAULT_PAGE_NUMBER_FONT_SIZE = 12
+export const DEFAULT_PAGE_NUMBER_START = 1
+export const DEFAULT_PAGE_NUMBER_MARGIN = 30
+export const DEFAULT_PAGE_NUMBER_TEXT_MARGIN = 50
+
+export const PDF_TO_IMAGE_SCALE = 2.0
+export const JPG_QUALITY = 0.92
+
+export const COMPRESSION_OBJECTS_PER_TICK = {
+  high: 50,
+  medium: 100,
+  low: 200,
+}

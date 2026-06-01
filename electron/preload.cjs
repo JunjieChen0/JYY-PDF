@@ -1,0 +1,11 @@
+const { contextBridge, ipcRenderer } = require('electron')
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  openFile: (options) => ipcRenderer.invoke('dialog:openFile', options),
+  saveFile: (options) => ipcRenderer.invoke('dialog:saveFile', options),
+  readFile: (filePath) => ipcRenderer.invoke('fs:readFile', filePath),
+  writeFile: (filePath, buffer) => ipcRenderer.invoke('fs:writeFile', filePath, buffer),
+  fileExists: (filePath) => ipcRenderer.invoke('fs:exists', filePath),
+  fileStat: (filePath) => ipcRenderer.invoke('fs:stat', filePath),
+  convertWordToPdf: (filePath) => ipcRenderer.invoke('convert:wordToPdf', filePath),
+})
