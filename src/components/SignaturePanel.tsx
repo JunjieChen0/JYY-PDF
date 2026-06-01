@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import type { UsePDFReturn } from '@/hooks/usePDF'
 import { createCancellationToken, CancelledError } from '@/lib/cancellation'
-import { getPdfjsLib } from '@/lib/pdfjs-config'
+import { getPdfjsLib, PDFJS_CONFIG } from '@/lib/pdfjs-config'
 import { logger } from '@/lib/logger'
 
 interface SignaturePanelProps {
@@ -51,7 +51,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
     const file = pdf.files.find(f => f.id === selectedFile)
     if (!file) return
     const pdfjsLib = getPdfjsLib()
-    pdfjsLib.getDocument({ data: new Uint8Array(file.data) }).promise.then(async pdfDoc => {
+    pdfjsLib.getDocument({ data: new Uint8Array(file.data), ...PDFJS_CONFIG }).promise.then(async pdfDoc => {
       try {
         const page = await pdfDoc.getPage(pageIndex + 1)
         const viewport = page.getViewport({ scale: 1 })
@@ -98,7 +98,10 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
     e.preventDefault()
     e.stopPropagation()
     setIsDrawing(true)
-    const ctx = canvasRef.current!.getContext('2d')!
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
     const { x, y } = getCanvasPos(e)
     ctx.beginPath()
     ctx.moveTo(x, y)
@@ -111,7 +114,10 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
     if (now - lastDrawCallRef.current < 16) return
     lastDrawCallRef.current = now
     e.preventDefault()
-    const ctx = canvasRef.current!.getContext('2d')!
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
     const { x, y } = getCanvasPos(e)
     ctx.lineWidth = 2.5
     ctx.lineCap = 'round'
@@ -124,16 +130,25 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
   const endDraw = useCallback(() => setIsDrawing(false), [])
 
   const clearCanvas = useCallback(() => {
-    const canvas = canvasRef.current!
-    const ctx = canvas.getContext('2d')!
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     setSignatureDataUrl(null)
   }, [])
 
   const confirmSignature = useCallback(() => {
-    const canvas = canvasRef.current!
-    // 检查是否是空签名
-    const ctx = canvas.getContext('2d')!
+    const canvas = canvasRef.current
+    if (!canvas) {
+      toast.error('签名画布未就绪')
+      return
+    }
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+      toast.error('签名画布上下文不可用')
+      return
+    }
     const pixelData = ctx.getImageData(0, 0, canvas.width, canvas.height).data
     const hasContent = pixelData.some(pixel => pixel !== 0)
     if (!hasContent) {

@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { getPdfjsLib } from '@/lib/pdfjs-config'
+import { getPdfjsLib, PDFJS_CONFIG } from '@/lib/pdfjs-config'
 import type { PDFFile } from './types'
 
 export function usePDFThumbnail(files: PDFFile[]) {
@@ -13,7 +13,7 @@ export function usePDFThumbnail(files: PDFFile[]) {
 
     try {
       const pdfjsLib = getPdfjsLib()
-      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(file.data) }).promise
+      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(file.data), ...PDFJS_CONFIG }).promise
       try {
         const page = await pdf.getPage(pageIndex + 1)
 

@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { PDFDocument } from 'pdf-lib'
-import { getPdfjsLib } from '@/lib/pdfjs-config'
+import { getPdfjsLib, PDFJS_CONFIG } from '@/lib/pdfjs-config'
 import type { PDFFile, ProgressCallback } from './types'
 import type { CancellationToken } from '@/lib/cancellation'
 import { yieldToMain, checkResult } from '@/lib/pdf-helpers'
@@ -32,7 +32,7 @@ export function usePDFConvert(files: PDFFile[]) {
 
     const { dir, baseName, sep } = splitFilePath(result.filePath)
     const pdfjsLib = getPdfjsLib()
-    const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(file.data) }).promise
+    const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(file.data), ...PDFJS_CONFIG }).promise
     const pages = pdfDoc.numPages
 
     try {
@@ -96,7 +96,7 @@ export function usePDFConvert(files: PDFFile[]) {
     if (result.canceled || !result.filePath) return null
 
     const pdfjsLib = getPdfjsLib()
-    const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(file.data) }).promise
+    const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(file.data), ...PDFJS_CONFIG }).promise
     const pages = pdfDoc.numPages
     let fullText = ''
 
@@ -214,7 +214,7 @@ export function usePDFConvert(files: PDFFile[]) {
     onProgress?.(10)
 
     const pdfjsLib = getPdfjsLib()
-    const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(file.data) }).promise
+    const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(file.data), ...PDFJS_CONFIG }).promise
     const totalPages = pdfDoc.numPages
 
     const { Document, Packer, Paragraph, TextRun, PageBreak } = await import('docx')

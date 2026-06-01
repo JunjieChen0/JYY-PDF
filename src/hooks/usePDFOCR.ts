@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { getPdfjsLib } from '@/lib/pdfjs-config'
+import { getPdfjsLib, PDFJS_CONFIG } from '@/lib/pdfjs-config'
 import type { PDFFile, ProgressCallback } from './types'
 import type { CancellationToken } from '@/lib/cancellation'
 import { checkResult } from '@/lib/pdf-helpers'
@@ -15,7 +15,7 @@ export function usePDFOCR(files: PDFFile[]) {
     if (!file) throw new Error('文件不存在')
 
     const pdfjsLib = getPdfjsLib()
-    const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(file.data) }).promise
+    const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(file.data), ...PDFJS_CONFIG }).promise
     const totalPages = pdfDoc.numPages
 
     const { createWorker } = await import('tesseract.js')

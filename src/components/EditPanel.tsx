@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import type { UsePDFReturn } from '@/hooks/usePDF'
 import type { Annotation } from '@/hooks/types'
 import { createCancellationToken, CancelledError } from '@/lib/cancellation'
-import { getPdfjsLib } from '@/lib/pdfjs-config'
+import { getPdfjsLib, PDFJS_CONFIG } from '@/lib/pdfjs-config'
 import { logger } from '@/lib/logger'
 
 interface EditPanelProps {
@@ -54,7 +54,7 @@ export function EditPanel({ pdf }: EditPanelProps) {
     if (!selectedFileData) return
     try {
       const pdfjsLib = getPdfjsLib()
-      const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(selectedFileData.data) }).promise
+      const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(selectedFileData.data), ...PDFJS_CONFIG }).promise
       const page = await pdfDoc.getPage(pageIndex + 1)
       const { width, height } = page.getViewport({ scale: 1 })
       pdfDoc.destroy()
