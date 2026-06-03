@@ -49,10 +49,10 @@ describe('usePDFConvert - pdfToWord / wordToPdf throw for unknown id', () => {
       }
     })
     expect(err).toBeInstanceOf(Error)
-    expect((err as Error).message).toBe('文件不存在')
+    expect((err as Error).message).toBe('FILE_NOT_FOUND')
   })
 
-  test('wordToPdf throws 文件不存在 for missing path', async () => {
+  test('wordToPdf throws FILE_NOT_FOUND for missing path', async () => {
     ;(window as any).electronAPI.fileExists = vi.fn(async () => false)
     const { result } = renderHook(() => usePDFConvert([]))
     let err: unknown = null
@@ -75,7 +75,7 @@ describe('usePDFConvert - imagesToPdf (basic wiring)', () => {
 })
 
 describe('usePDFOCR', () => {
-  test('throws 文件不存在 for unknown file id', async () => {
+  test('throws FILE_NOT_FOUND for unknown file id', async () => {
     const { result } = renderHook(() => usePDFOCR([]))
     let err: unknown = null
     await act(async () => {
@@ -86,7 +86,7 @@ describe('usePDFOCR', () => {
       }
     })
     expect(err).toBeInstanceOf(Error)
-    expect((err as Error).message).toBe('文件不存在')
+    expect((err as Error).message).toBe('FILE_NOT_FOUND')
   })
 })
 

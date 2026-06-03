@@ -3,6 +3,7 @@ import { PDFDocument } from 'pdf-lib'
 import fontkit from '@pdf-lib/fontkit'
 import type { PDFFile, ProgressCallback, PageNumberPosition } from './types'
 import type { CancellationToken } from '@/lib/cancellation'
+import { t, ErrorCode } from '@/lib/i18n'
 import {
   hexToRgb,
   estimateTextWidth,
@@ -66,9 +67,9 @@ export function usePDFPageNumbers(files: PDFFile[]) {
         } = options
 
         const fontBytes = await window.electronAPI.readSystemFont('simsun')
-        checkResult(fontBytes, '读取系统字体失败，请确保系统已安装宋体字体')
+        checkResult(fontBytes, t(ErrorCode.SYSTEM_FONT_NOT_INSTALLED))
         const embeddedFont = await pdfDoc.embedFont(
-          assertUint8Array(fontBytes, '读取系统字体失败'),
+          assertUint8Array(fontBytes, t(ErrorCode.FONT_READ_FAILED)),
           { subset: true },
         )
 
@@ -139,7 +140,7 @@ export function usePDFPageNumbers(files: PDFFile[]) {
 
         const bytes = await pdfDoc.save()
         const writeResult = await window.electronAPI.writeFile(result.filePath, bytes)
-        checkResult(writeResult, '写入文件失败：')
+        checkResult(writeResult, t(ErrorCode.WRITE_FILE_FAILED))
 
         return result.filePath
       } finally {

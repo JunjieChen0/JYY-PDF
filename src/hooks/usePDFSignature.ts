@@ -34,7 +34,7 @@ export function usePDFSignature(files: PDFFile[]) {
 
       const jsResult = await detectJavaScriptActions(fileData)
       if (jsResult.found) {
-        logger.warn('PDF包含嵌入式JavaScript，已阻止签名操作以确保安全', {
+        logger.warn('PDF contains embedded JavaScript, signature blocked for security', {
           locations: jsResult.locations,
         })
         throw new Error(t(ErrorCode.PDF_HAS_JAVASCRIPT))
@@ -103,7 +103,7 @@ export function usePDFSignature(files: PDFFile[]) {
         const bytes = await pdfDoc.save()
 
         const writeResult = await window.electronAPI.writeFile(filePath, bytes)
-        checkResult(writeResult, '写入文件失败：')
+        checkResult(writeResult, t(ErrorCode.WRITE_FILE_FAILED))
 
         return result.filePath
       } finally {

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { FileText, Moon, Sun } from 'lucide-react'
 import { useState, useEffect, Suspense, lazy } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Toaster } from 'sonner'
 
 import { APP_VERSION } from '@/lib/build-info'
@@ -10,6 +11,7 @@ import { Separator } from '@/components/ui/separator'
 import { FileDropZone } from '@/components/FileDropZone'
 import { FileList } from '@/components/FileList'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { usePDF } from '@/hooks/usePDF'
 import { useGlobalProcessing } from '@/hooks/useGlobalProcessing'
 
@@ -52,6 +54,7 @@ const ConvertOfficePanel = lazy(() =>
 )
 
 function App() {
+  const { t } = useTranslation()
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window === 'undefined') return false
     try {
@@ -96,11 +99,12 @@ function App() {
             <Button
               variant="ghost"
               size="icon"
-              aria-label={darkMode ? '切换为亮色模式' : '切换为暗色模式'}
+              aria-label={t(darkMode ? 'app.lightMode' : 'app.darkMode')}
               onClick={() => setDarkMode(!darkMode)}
             >
               {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
+            <LanguageSwitcher />
           </div>
         </div>
       </header>
@@ -125,9 +129,9 @@ function App() {
                 >
                   <div className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-lg font-semibold">文件列表</h2>
+                      <h2 className="text-lg font-semibold">{t('app.fileListTitle')}</h2>
                       <span className="text-sm text-muted-foreground">
-                        {pdf.files.length} 个文件
+                        {t('app.fileCount', { count: pdf.files.length })}
                       </span>
                     </div>
                     <Separator className="mb-4" />
@@ -152,49 +156,49 @@ function App() {
                   <Tabs defaultValue="merge" className="w-full">
                     <TabsList className="w-full flex flex-wrap h-auto gap-1">
                       <TabsTrigger value="merge" className="flex-1 min-w-[60px]">
-                        合并
+                        {t('app.tab.merge')}
                       </TabsTrigger>
                       <TabsTrigger value="split" className="flex-1 min-w-[60px]">
-                        分割
+                        {t('app.tab.split')}
                       </TabsTrigger>
                       <TabsTrigger value="pages" className="flex-1 min-w-[60px]">
-                        页面
+                        {t('app.tab.pageOps')}
                       </TabsTrigger>
                       <TabsTrigger value="compress" className="flex-1 min-w-[60px]">
-                        压缩
+                        {t('app.tab.compress')}
                       </TabsTrigger>
                       <TabsTrigger value="encrypt" className="flex-1 min-w-[60px]">
-                        加密
+                        {t('app.tab.encrypt')}
                       </TabsTrigger>
                       <TabsTrigger value="watermark" className="flex-1 min-w-[60px]">
-                        水印
+                        {t('app.tab.watermark')}
                       </TabsTrigger>
                       <TabsTrigger value="pagenum" className="flex-1 min-w-[60px]">
-                        页码
+                        {t('app.tab.pageNumbers')}
                       </TabsTrigger>
                       <TabsTrigger value="convert" className="flex-1 min-w-[60px]">
-                        转换
+                        {t('app.tab.convert')}
                       </TabsTrigger>
                       <TabsTrigger value="img2pdf" className="flex-1 min-w-[60px]">
-                        图片
+                        {t('app.tab.imagesToPdf')}
                       </TabsTrigger>
                       <TabsTrigger value="office" className="flex-1 min-w-[60px]">
-                        Office
+                        {t('app.tab.convertOffice')}
                       </TabsTrigger>
                       <TabsTrigger value="ocr" className="flex-1 min-w-[60px]">
-                        OCR
+                        {t('app.tab.ocr')}
                       </TabsTrigger>
                       <TabsTrigger value="edit" className="flex-1 min-w-[60px]">
-                        编辑
+                        {t('app.tab.edit')}
                       </TabsTrigger>
                       <TabsTrigger value="sign" className="flex-1 min-w-[60px]">
-                        签名
+                        {t('app.tab.signature')}
                       </TabsTrigger>
                     </TabsList>
                     <Suspense
                       fallback={
                         <div className="flex items-center justify-center p-8 text-muted-foreground text-sm">
-                          加载中...
+                          {t('common.processing')}
                         </div>
                       }
                     >

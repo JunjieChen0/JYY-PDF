@@ -59,7 +59,7 @@ export function usePDFEncrypt(files: PDFFile[]) {
 
       if (!result.data) throw new Error(t(ErrorCode.ENCRYPT_RESULT_EMPTY))
       const writeResult = await window.electronAPI.writeFile(saveResult.filePath, result.data)
-      checkResult(writeResult, '写入文件失败：')
+      checkResult(writeResult, t(ErrorCode.WRITE_FILE_FAILED))
 
       onProgress?.(100)
       return saveResult.filePath
@@ -110,7 +110,7 @@ export function usePDFEncrypt(files: PDFFile[]) {
 
       if (!result.data) throw new Error(t(ErrorCode.DECRYPT_RESULT_EMPTY))
       const writeResult = await window.electronAPI.writeFile(saveResult.filePath, result.data)
-      checkResult(writeResult, '写入文件失败：')
+      checkResult(writeResult, t(ErrorCode.WRITE_FILE_FAILED))
 
       onProgress?.(100)
       return saveResult.filePath

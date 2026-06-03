@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { ImageIcon, Loader2, Upload, X, GripVertical, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
@@ -26,12 +27,13 @@ interface ImagesToPdfPanelProps {
 }
 
 export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
+  const { t } = useTranslation()
   const [images, setImages] = useState<ImageItem[]>([])
   const [pageSize, setPageSize] = useState<'auto' | 'A4'>('auto')
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const { isProcessing, progress, execute, cancel } = useOperation({
-    errorMessagePrefix: '转换失败',
-    onCancelMessage: '已取消转换',
+    errorMessagePrefix: t('errorPrefix.convert'),
+    onCancelMessage: t('errorPrefix.cancelled'),
   })
   const rafRef = useRef<number | null>(null)
   const pendingDropIndex = useRef<number | null>(null)
@@ -45,7 +47,7 @@ export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
       for (const filePath of result.filePaths) {
         const ext = filePath.toLowerCase().split('.').pop()
         if (!['png', 'jpg', 'jpeg'].includes(ext || '')) {
-          toast.warning(`跳过非图片文件：${filePath.split(/[/\\]/).pop()}`)
+          toast.warning(t('panel.imagesToPdf.skipNonImage', { name: filePath.split(/[/\\]/).pop() }))
           continue
         }
         const parts = filePath.replace(/\\/g, '/').split('/')
@@ -111,7 +113,7 @@ export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
     void undefined
 
     if (result) {
-      toast.success(`转换完成！PDF 已保存到：${result}`)
+      toast.success(t('panel.imagesToPdf.convertCompleted', { path: result }))
     }
   }
 
@@ -120,14 +122,14 @@ export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <ImageIcon className="h-5 w-5" />
-          图片转 PDF
+          {t('panel.imagesToPdf.title')}
         </CardTitle>
-        <CardDescription>将多张图片合并为一个 PDF 文件</CardDescription>
+        <CardDescription>{t('panel.imagesToPdf.description')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium">图片列表</label>
+            <label className="text-sm font-medium">{t('panel.imagesToPdf.imageList')}</label>
             <Button
               variant="outline"
               size="sm"
@@ -135,7 +137,7 @@ export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
               disabled={isProcessing}
             >
               <Upload className="mr-2 h-4 w-4" />
-              选择图片
+              {t('panel.imagesToPdf.selectImages')}
             </Button>
           </div>
 
@@ -145,8 +147,8 @@ export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
               className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
             >
               <ImageIcon className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-              <p className="text-sm text-muted-foreground">点击选择 PNG/JPG 图片</p>
-              <p className="text-xs text-muted-foreground mt-1">支持多选，可拖拽调整顺序</p>
+              <p className="text-sm text-muted-foreground">{t('panel.imagesToPdf.clickToSelect')}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t('panel.imagesToPdf.dragHint')}</p>
             </div>
           ) : (
             <div className="border rounded-lg divide-y max-h-[200px] overflow-y-auto">
@@ -180,7 +182,7 @@ export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
           )}
 
           {images.length > 0 && (
-            <p className="text-xs text-muted-foreground text-right">共 {images.length} 张图片</p>
+            <p className="text-xs text-muted-foreground text-right">{t('panel.imagesToPdf.imageCount', { count: images.length })}</p>
           )}
         </div>
 
@@ -191,20 +193,20 @@ export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
             className="space-y-4"
           >
             <div className="space-y-2">
-              <Label>页面尺寸</Label>
+              <Label>{t('panel.imagesToPdf.pageSize')}</Label>
               <Select value={pageSize} onValueChange={(v) => setPageSize(v as 'auto' | 'A4')}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="auto">自适应（按图片尺寸）</SelectItem>
-                  <SelectItem value="A4">A4 标准尺寸</SelectItem>
+                  <SelectItem value="auto">{t('panel.imagesToPdf.pageSizeAuto')}</SelectItem>
+                  <SelectItem value="A4">{t('panel.imagesToPdf.pageSizeA4')}</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
                 {pageSize === 'auto'
-                  ? '每页尺寸与图片相同，无缩放'
-                  : '图片将按比例缩放适配 A4 页面'}
+                  ? t('panel.imagesToPdf.pageSizeAutoHint')
+                  : t('panel.imagesToPdf.pageSizeA4Hint')}
               </p>
             </div>
 
@@ -215,7 +217,7 @@ export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
                 className="space-y-2"
               >
                 <Progress value={progress} />
-                <p className="text-sm text-muted-foreground text-center">正在转换... {progress}%</p>
+                <p className="text-sm text-muted-foreground text-center">{t('panel.imagesToPdf.converting', { progress })}</p>
               </motion.div>
             )}
 
@@ -224,19 +226,19 @@ export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
                 {isProcessing ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    转换中...
+                    {t('panel.imagesToPdf.convertingBtn')}
                   </>
                 ) : (
                   <>
                     <ImageIcon className="mr-2 h-4 w-4" />
-                    生成 PDF
+                    {t('panel.imagesToPdf.generatePdf')}
                   </>
                 )}
               </Button>
               {isProcessing && (
                 <Button variant="outline" onClick={cancel}>
                   <XCircle className="mr-2 h-4 w-4" />
-                  取消
+                  {t('panel.imagesToPdf.cancel')}
                 </Button>
               )}
             </div>

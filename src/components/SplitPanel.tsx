@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Scissors, Loader2, Info, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -14,10 +15,11 @@ interface SplitPanelProps {
 }
 
 export function SplitPanel({ pdf }: SplitPanelProps) {
+  const { t } = useTranslation()
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [rangeStr, setRangeStr] = useState('')
   const { isProcessing, progress, execute, cancel } = useOperation({
-    errorMessagePrefix: '分割失败',
+    errorMessagePrefix: t('errorPrefix.split'),
   })
 
   const selectedFileData = pdf.files.find((f) => f.id === selectedFile)
@@ -33,7 +35,7 @@ export function SplitPanel({ pdf }: SplitPanelProps) {
     )
 
     if (results) {
-      toast.success(`分割完成！生成 ${results.length} 个文件`)
+      toast.success(t('panel.split.completed', { count: results.length }))
     }
   }
 
@@ -42,17 +44,17 @@ export function SplitPanel({ pdf }: SplitPanelProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Scissors className="h-5 w-5" />
-          分割 PDF
+          {t('panel.split.title')}
         </CardTitle>
-        <CardDescription>将 PDF 文件按页码范围分割为多个文件。</CardDescription>
+        <CardDescription>{t('panel.split.description')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {pdf.files.length === 0 ? (
-          <p className="text-sm text-muted-foreground">请先添加 PDF 文件</p>
+          <p className="text-sm text-muted-foreground">{t('panel.split.noFiles')}</p>
         ) : (
           <>
             <div className="space-y-2">
-              <label className="text-sm font-medium">选择文件</label>
+              <label className="text-sm font-medium">{t('panel.split.selectFileLabel')}</label>
               <div className="flex flex-wrap gap-2">
                 {pdf.files.map((file) => (
                   <Badge
@@ -75,20 +77,20 @@ export function SplitPanel({ pdf }: SplitPanelProps) {
               >
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Info className="h-4 w-4" />
-                  <span>共 {selectedFileData.pageCount} 页</span>
+                  <span>{t('panel.split.totalPages', { count: selectedFileData.pageCount })}</span>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">页码范围</label>
+                  <label className="text-sm font-medium">{t('panel.split.label')}</label>
                   <input
                     type="text"
                     value={rangeStr}
                     onChange={(e) => setRangeStr(e.target.value)}
-                    placeholder="例如: 1-3, 5, 7-10"
+                    placeholder={t('panel.split.placeholder')}
                     className="w-full px-3 py-2 border rounded-md bg-background"
                   />
                   <p className="text-xs text-muted-foreground">
-                    支持格式：1-3（范围）、5（单页）、1-3, 5, 7-10（组合）
+                    {t('panel.split.hint')}
                   </p>
                 </div>
               </motion.div>
@@ -101,7 +103,7 @@ export function SplitPanel({ pdf }: SplitPanelProps) {
                 className="space-y-2"
               >
                 <Progress value={progress} />
-                <p className="text-sm text-muted-foreground text-center">正在分割... {progress}%</p>
+                <p className="text-sm text-muted-foreground text-center">{t('panel.split.processing')} {progress}%</p>
               </motion.div>
             )}
 
@@ -114,19 +116,19 @@ export function SplitPanel({ pdf }: SplitPanelProps) {
                 {isProcessing ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    分割中...
+                    {t('panel.split.splitting')}
                   </>
                 ) : (
                   <>
                     <Scissors className="mr-2 h-4 w-4" />
-                    分割文件
+                    {t('panel.split.splitFile')}
                   </>
                 )}
               </Button>
               {isProcessing && (
                 <Button variant="outline" onClick={cancel}>
                   <XCircle className="mr-2 h-4 w-4" />
-                  取消
+                  {t('panel.split.cancel')}
                 </Button>
               )}
             </div>

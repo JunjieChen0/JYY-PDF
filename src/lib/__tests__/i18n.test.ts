@@ -1,5 +1,17 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, beforeAll } from 'vitest'
+import i18next from 'i18next'
+import zh from '@/i18n/zh.json'
 import { t, ErrorCode } from '../i18n'
+
+beforeAll(async () => {
+  if (!i18next.isInitialized) {
+    await i18next.init({
+      resources: { zh: { translation: zh } },
+      fallbackLng: 'zh',
+      interpolation: { escapeValue: false },
+    })
+  }
+})
 
 describe('i18n.t', () => {
   test('returns Chinese for known ErrorCode', () => {
@@ -19,8 +31,8 @@ describe('i18n.t', () => {
   })
 
   test('performs parameter substitution on known key with placeholders', () => {
-    const r = t('demo.greeting', { name: '张三', product: 'PDF 工具' })
-    expect(r).toBe('你好，张三！欢迎使用 PDF 工具。')
+    const r = t('app.fileTooLarge', { name: '测试.pdf' })
+    expect(r).toBe('文件 测试.pdf 超过最大限制100MB，无法添加')
   })
 
   test('handles no params gracefully', () => {
@@ -28,8 +40,8 @@ describe('i18n.t', () => {
   })
 
   test('leaves placeholders intact when params missing', () => {
-    const r = t('demo.greeting', { name: '张三' })
-    expect(r).toContain('{product}')
+    const r = t('app.fileTooLarge')
+    expect(r).toContain('{{name}}')
   })
 
   test('all ErrorCode values are mapped', () => {

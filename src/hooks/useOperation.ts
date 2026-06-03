@@ -53,8 +53,7 @@ export function useOperation(options?: UseOperationOptions) {
         releaseOperation()
         inFlightRef.current = false
         toast.error(
-          optionsRef.current?.onLockedMessage ||
-            t('errorPrefix.cancelled') + '：该文件正在被其他操作处理，请稍候再试',
+          optionsRef.current?.onLockedMessage || t('app.fileLocked'),
         )
         return null
       }
@@ -72,7 +71,7 @@ export function useOperation(options?: UseOperationOptions) {
           toast.info(optionsRef.current?.onCancelMessage || t(ErrorCode.CANCELLED))
         } else {
           const prefix = optionsRef.current?.errorMessagePrefix || t(ErrorCode.OPERATION_FAILED)
-          toast.error(`${prefix}：${error instanceof Error ? error.message : String(error)}`)
+          toast.error(`${prefix}: ${error instanceof Error ? error.message : String(error)}`)
         }
         return null
       } finally {

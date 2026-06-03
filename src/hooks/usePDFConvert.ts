@@ -71,7 +71,7 @@ export function usePDFConvert(files: PDFFile[]) {
               canvas.toBlob(
                 (b) => {
                   if (b) resolve(b)
-                  else reject(new Error('Canvas 导出图片失败'))
+                  else reject(new Error(t(ErrorCode.CANVAS_EXPORT_FAILED)))
                 },
                 mimeType,
                 quality,
@@ -82,7 +82,7 @@ export function usePDFConvert(files: PDFFile[]) {
             const outputPath = buildOutputPath(dir, baseName, `_page${i}`, format, sep)
             checkResult(
               await window.electronAPI.writeFile(outputPath, new Uint8Array(imgBuffer)),
-              '写入图片失败：',
+              t(ErrorCode.WRITE_FILE_FAILED),
             )
 
             onProgress?.(Math.round((i / pages) * 100))
@@ -124,7 +124,7 @@ export function usePDFConvert(files: PDFFile[]) {
           const page = await pdfDoc.getPage(i)
           const textContent = (await page.getTextContent()) as TextContent
           const pageText = textContent.items.map((item) => item.str).join(' ')
-          fullText += `=== 第 ${i} 页 ===\n${pageText}\n\n`
+          fullText += `${t('OCR_PAGE_HEADER', { page: i })}\n${pageText}\n\n`
           onProgress?.(Math.round((i / pages) * 100))
         }
       } finally {
@@ -134,7 +134,7 @@ export function usePDFConvert(files: PDFFile[]) {
       const encoder = new TextEncoder()
       checkResult(
         await window.electronAPI.writeFile(result.filePath, encoder.encode(fullText)),
-        '写入文件失败：',
+        t(ErrorCode.WRITE_FILE_FAILED),
       )
 
       return result.filePath
@@ -157,16 +157,16 @@ export function usePDFConvert(files: PDFFile[]) {
       for (let i = 0; i < imagePaths.length; i++) {
         token?.throwIfCancelled()
         const imageBuffer = await window.electronAPI.readFile(imagePaths[i])
-        checkResult(imageBuffer, '读取图片失败：')
+        checkResult(imageBuffer, t(ErrorCode.IMAGE_READ_FAILED))
 
         let image
         try {
-          image = await pdfDoc.embedPng(assertUint8Array(imageBuffer, '读取图片失败'))
+          image = await pdfDoc.embedPng(assertUint8Array(imageBuffer, t(ErrorCode.IMAGE_READ_FAILED)))
         } catch {
           try {
-            image = await pdfDoc.embedJpg(assertUint8Array(imageBuffer, '读取图片失败'))
+            image = await pdfDoc.embedJpg(assertUint8Array(imageBuffer, t(ErrorCode.IMAGE_READ_FAILED)))
           } catch {
-            throw new Error(`不支持的图片格式：${imagePaths[i]}`)
+            throw new Error(t(ErrorCode.UNSUPPORTED_IMAGE_FORMAT))
           }
         }
 
@@ -213,7 +213,7 @@ export function usePDFConvert(files: PDFFile[]) {
       onProgress?.(95)
 
       const writeResult = await window.electronAPI.writeFile(result.filePath, bytes)
-      checkResult(writeResult, '写入文件失败：')
+      checkResult(writeResult, t(ErrorCode.WRITE_FILE_FAILED))
 
       onProgress?.(100)
       return result.filePath
@@ -228,7 +228,7 @@ export function usePDFConvert(files: PDFFile[]) {
 
       const result = await window.electronAPI.saveFile({
         defaultPath: `${file.name.replace(/\.pdf$/i, '')}.docx`,
-        filters: [{ name: 'Word文档', extensions: ['docx'] }],
+        filters: [{ name: t('WORD_DOCUMENTS'), extensions: ['docx'] }],
       })
       if (result.canceled || !result.filePath) return null
 
@@ -294,7 +294,7 @@ export function usePDFConvert(files: PDFFile[]) {
       const uint8 = new Uint8Array(buffer)
 
       const writeResult = await window.electronAPI.writeFile(result.filePath, uint8)
-      checkResult(writeResult, '写入文件失败：')
+      checkResult(writeResult, t(ErrorCode.WRITE_FILE_FAILED))
 
       return result.filePath
     },
@@ -311,8 +311,8 @@ export function usePDFConvert(files: PDFFile[]) {
       token?.throwIfCancelled()
       onProgress?.(30)
       const fileBuffer = await window.electronAPI.readFile(filePath)
-      checkResult(fileBuffer, '读取Word文档失败：')
-      const wordData = assertUint8Array(fileBuffer, '读取Word文档失败')
+      checkResult(fileBuffer, t(ErrorCode.WORD_READ_FAILED))
+      const wordData = assertUint8Array(fileBuffer, t(ErrorCode.WORD_READ_FAILED))
 
       token?.throwIfCancelled()
       onProgress?.(60)
@@ -325,13 +325,13 @@ export function usePDFConvert(files: PDFFile[]) {
 
       const saveResult = await window.electronAPI.saveFile({
         defaultPath: filePath.replace(/\.(docx?|xlsx?|pptx?)$/i, '.pdf'),
-        filters: [{ name: 'PDF文件', extensions: ['pdf'] }],
+        filters: [{ name: t('PDF_FILES'), extensions: ['pdf'] }],
       })
       if (saveResult.canceled || !saveResult.filePath) return null
 
       token?.throwIfCancelled()
       const moveResult = await window.electronAPI.writeFile(saveResult.filePath, pdfResult.data)
-      checkResult(moveResult, '写入文件失败：')
+      checkResult(moveResult, t(ErrorCode.WRITE_FILE_FAILED))
 
       onProgress?.(100)
       return saveResult.filePath

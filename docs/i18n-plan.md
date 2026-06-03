@@ -1,7 +1,7 @@
 # i18n 国际化实施方案
 
 > 创建日期：2026-06-03
-> 状态：**待执行**
+> 状态：**已完成** ✅
 > 技术栈：i18next + react-i18next + i18next-browser-languagedetector
 
 ---
@@ -188,66 +188,66 @@ src/
 
 ### Phase 1：基础设施（~2h）
 
-- [ ] 安装依赖：`npm install i18next react-i18next i18next-browser-languagedetector`
-- [ ] 创建 `src/i18n/index.ts` — i18next 初始化
-- [ ] 创建 `src/i18n/zh.json` — 从现有 `i18n.ts` messages 迁移
-- [ ] 创建 `src/i18n/en.json` — 英文翻译骨架
-- [ ] 在 `main.tsx` 导入 i18n 初始化
-- [ ] 改造 `src/lib/i18n.ts` — 删除 messages，re-export useTranslation
+- [x] 安装依赖：`npm install i18next react-i18next i18next-browser-languagedetector`
+- [x] 创建 `src/i18n/index.ts` — i18next 初始化
+- [x] 创建 `src/i18n/zh.json` — 从现有 `i18n.ts` messages 迁移
+- [x] 创建 `src/i18n/en.json` — 英文翻译骨架
+- [x] 在 `main.tsx` 导入 i18n 初始化
+- [x] 改造 `src/lib/i18n.ts` — 删除 messages，re-export useTranslation
 
 ### Phase 2：翻译文件内容（~4h）
 
-- [ ] 编写 `zh.json` 完整内容（350+ key）
-- [ ] 编写 `en.json` 完整内容
+- [x] 编写 `zh.json` 完整内容（350+ key）
+- [x] 编写 `en.json` 完整内容
 
 ### Phase 3：改造 hooks（~3h）
 
-- [ ] `usePDFFiles.ts` — 8 处 toast
-- [ ] `useOperation.ts` — 3 处 toast
-- [ ] `usePDFSignature.ts` — 2 处 throw
-- [ ] `usePDFEncrypt.ts` — 4 处 throw
-- [ ] `usePDFConvert.ts` — 3 处 throw
-- [ ] `usePDFOCR.ts` — 3 处 throw
-- [ ] `usePDFAnnotation.ts` — 2 处 throw
-- [ ] `usePDFWatermark.ts` — 3 处 throw
-- [ ] `usePDFPageNumbers.ts` — 1 处 throw
-- [ ] `usePDFPages.ts` — 2 处 throw
+- [x] `usePDFFiles.ts` — 8 处 toast
+- [x] `useOperation.ts` — 3 处 toast
+- [x] `usePDFSignature.ts` — 2 处 throw
+- [x] `usePDFEncrypt.ts` — 4 处 throw
+- [x] `usePDFConvert.ts` — 3 处 throw
+- [x] `usePDFOCR.ts` — 3 处 throw
+- [x] `usePDFAnnotation.ts` — 2 处 throw
+- [x] `usePDFWatermark.ts` — 3 处 throw
+- [x] `usePDFPageNumbers.ts` — 1 处 throw
+- [x] `usePDFPages.ts` — 2 处 throw
 
 ### Phase 4：改造 components（~3h）
 
-- [ ] `App.tsx` — Tab 名、标题
-- [ ] `FileDropZone.tsx` — 拖拽提示
-- [ ] `FileList.tsx` — 按钮文字
-- [ ] `ErrorBoundary.tsx` — 错误显示（class 组件，需用 withTranslation）
-- [ ] `CompressPanel.tsx` — 1 toast + 选项描述
-- [ ] `MergePanel.tsx` — 1 toast + UI 文字
-- [ ] `SplitPanel.tsx` — 1 toast + UI 文字
-- [ ] `EncryptPanel.tsx` — 4 toast + 表单标签
-- [ ] `WatermarkPanel.tsx` — 3 toast + 选项
-- [ ] `PageNumbersPanel.tsx` — 1 toast + 选项
-- [ ] `EditPanel.tsx` — 4 toast + UI 文字
-- [ ] `SignaturePanel.tsx` — 12 toast + UI 文字
-- [ ] `ConvertPanel.tsx` — 1 toast + UI 文字
-- [ ] `ConvertOfficePanel.tsx` — 5 toast + UI 文字
-- [ ] `ImagesToPdfPanel.tsx` — 2 toast + UI 文字
-- [ ] `OcrPanel.tsx` — 2 toast + UI 文字
-- [ ] `PageOperations.tsx` — 1 toast + UI 文字
-- [ ] `PageThumbnail.tsx` — 1 处
+- [x] `App.tsx` — Tab 名、标题
+- [x] `FileDropZone.tsx` — 拖拽提示
+- [x] `FileList.tsx` — 按钮文字
+- [x] `ErrorBoundary.tsx` — 错误显示（class 组件，需用 withTranslation）
+- [x] `CompressPanel.tsx` — 1 toast + 选项描述
+- [x] `MergePanel.tsx` — 1 toast + UI 文字
+- [x] `SplitPanel.tsx` — 1 toast + UI 文字
+- [x] `EncryptPanel.tsx` — 4 toast + 表单标签
+- [x] `WatermarkPanel.tsx` — 3 toast + 选项
+- [x] `PageNumbersPanel.tsx` — 1 toast + 选项
+- [x] `EditPanel.tsx` — 4 toast + UI 文字
+- [x] `SignaturePanel.tsx` — 12 toast + UI 文字
+- [x] `ConvertPanel.tsx` — 1 toast + UI 文字
+- [x] `ConvertOfficePanel.tsx` — 5 toast + UI 文字
+- [x] `ImagesToPdfPanel.tsx` — 2 toast + UI 文字
+- [x] `OcrPanel.tsx` — 2 toast + UI 文字
+- [x] `PageOperations.tsx` — 1 toast + UI 文字
+- [x] `PageThumbnail.tsx` — 1 处
 
 ### Phase 5：语言切换 UI（~2h）
 
-- [ ] 创建 `src/components/LanguageSwitcher.tsx`
-- [ ] 在 `App.tsx` 顶栏添加 LanguageSwitcher（暗色模式按钮旁）
-- [ ] 验证语言切换 + 持久化
+- [x] 创建 `src/components/LanguageSwitcher.tsx`
+- [x] 在 `App.tsx` 顶栏添加 LanguageSwitcher（暗色模式按钮旁）
+- [x] 验证语言切换 + 持久化
 
 ### Phase 6：验证 + 测试更新（~4h）
 
-- [ ] 更新 `src/lib/__tests__/i18n.test.ts`
-- [ ] 更新其他测试文件中的中文断言
-- [ ] `npm run lint` 通过
-- [ ] `npx tsc --noEmit` 通过
-- [ ] 手动切换中英文，逐面板验证
-- [ ] `npm run test` 通过
+- [x] 更新 `src/lib/__tests__/i18n.test.ts`
+- [x] 更新其他测试文件中的中文断言
+- [x] `npm run lint` 通过
+- [x] `npx tsc --noEmit` 通过
+- [ ] 手动切换中英文，逐面板验证（需用户手动执行）
+- [x] `npm run test` 通过
 
 ---
 

@@ -1,4 +1,5 @@
 import { Component, ReactNode } from 'react'
+import { withTranslation, WithTranslation } from 'react-i18next'
 import { AlertCircle, ClipboardCopy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { logger } from '@/lib/logger'
@@ -35,7 +36,7 @@ async function dispatchReporters(payload: {
   }
 }
 
-interface ErrorBoundaryProps {
+interface ErrorBoundaryProps extends WithTranslation {
   children: ReactNode
   fallback?: ReactNode
   onError?: ErrorReporter
@@ -47,7 +48,7 @@ interface ErrorBoundaryState {
   copied: boolean
 }
 
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundaryBase extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props)
     this.state = { hasError: false, error: null, copied: false }
@@ -101,7 +102,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       }
       this.setState({ copied: true })
     } catch (err) {
-      logger.warn('复制错误信息失败', err)
+      logger.warn('Failed to copy error details', err)
     }
   }
 
@@ -110,25 +111,26 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       if (this.props.fallback) {
         return this.props.fallback
       }
+      const { t } = this.props
       return (
         <div className="flex flex-col items-center justify-center h-full p-8 text-center">
           <AlertCircle className="h-12 w-12 text-destructive mb-4" />
-          <h2 className="text-xl font-semibold mb-2">出现错误</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('errorBoundary.title')}</h2>
           <p className="text-muted-foreground mb-4 max-w-md">
-            {this.state.error?.message || '发生了未知错误'}
+            {this.state.error?.message || t('errorBoundary.description')}
           </p>
           <div className="flex gap-2">
-            <Button onClick={this.handleReset}>重试</Button>
+            <Button onClick={this.handleReset}>{t('errorBoundary.retry')}</Button>
             <Button variant="outline" onClick={this.handleCopy}>
               {this.state.copied ? (
                 <>
                   <Check className="mr-1 h-4 w-4" />
-                  已复制
+                  {t('errorBoundary.copied')}
                 </>
               ) : (
                 <>
                   <ClipboardCopy className="mr-1 h-4 w-4" />
-                  复制错误信息
+                  {t('errorBoundary.copyDetails')}
                 </>
               )}
             </Button>
@@ -140,3 +142,5 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return this.props.children
   }
 }
+
+export const ErrorBoundary = withTranslation()(ErrorBoundaryBase)

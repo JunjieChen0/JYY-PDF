@@ -60,7 +60,7 @@ export function usePDFPages(files: PDFFile[]) {
           token?.throwIfCancelled()
           const bytes = await newPdf.save()
           const writeResult = await window.electronAPI.writeFile(result.filePath, bytes)
-          checkResult(writeResult, '写入文件失败：')
+          checkResult(writeResult, t(ErrorCode.WRITE_FILE_FAILED))
           results.push(result.filePath)
 
           processedPages += rangePages.length
@@ -116,7 +116,7 @@ export function usePDFPages(files: PDFFile[]) {
         token?.throwIfCancelled()
         const bytes = await pdfDoc.save()
         const writeResult = await window.electronAPI.writeFile(result.filePath, bytes)
-        checkResult(writeResult, '写入文件失败：')
+        checkResult(writeResult, t(ErrorCode.WRITE_FILE_FAILED))
 
         return result.filePath
       } finally {
@@ -170,7 +170,7 @@ export function usePDFPages(files: PDFFile[]) {
         token?.throwIfCancelled()
         const bytes = await newPdf.save()
         const writeResult = await window.electronAPI.writeFile(result.filePath, bytes)
-        checkResult(writeResult, '写入文件失败：')
+        checkResult(writeResult, t(ErrorCode.WRITE_FILE_FAILED))
 
         return result.filePath
       } finally {
@@ -216,7 +216,7 @@ export function usePDFPages(files: PDFFile[]) {
         token?.throwIfCancelled()
         const bytes = await newPdf.save()
         const writeResult = await window.electronAPI.writeFile(result.filePath, bytes)
-        checkResult(writeResult, '写入文件失败：')
+        checkResult(writeResult, t(ErrorCode.WRITE_FILE_FAILED))
 
         return result.filePath
       } finally {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { RotateCw, Trash2, FileOutput, Loader2, Info, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -17,12 +18,13 @@ interface PageOperationsProps {
 type Operation = 'rotate' | 'delete' | 'extract'
 
 export function PageOperations({ pdf }: PageOperationsProps) {
+  const { t } = useTranslation()
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [operation, setOperation] = useState<Operation>('rotate')
   const [pageRange, setPageRange] = useState('')
   const [rotateAngle, setRotateAngle] = useState(90)
   const { isProcessing, progress, execute, cancel } = useOperation({
-    errorMessagePrefix: '操作失败',
+    errorMessagePrefix: t('panel.pageOps.errorPrefix'),
   })
 
   const selectedFileData = pdf.files.find((f) => f.id === selectedFile)
@@ -45,15 +47,15 @@ export function PageOperations({ pdf }: PageOperationsProps) {
     )
 
     if (result) {
-      const opNames = { rotate: '旋转', delete: '删除', extract: '提取' }
-      toast.success(`${opNames[operation]}完成！保存至：${result}`)
+      const opKey = `${operation}Completed` as const
+      toast.success(t(`panel.pageOps.${opKey}`, { path: result }))
     }
   }
 
   const operations: { id: Operation; label: string; icon: React.ReactNode }[] = [
-    { id: 'rotate', label: '旋转页面', icon: <RotateCw className="h-4 w-4" /> },
-    { id: 'delete', label: '删除页面', icon: <Trash2 className="h-4 w-4" /> },
-    { id: 'extract', label: '提取页面', icon: <FileOutput className="h-4 w-4" /> },
+    { id: 'rotate', label: t('panel.pageOps.rotate'), icon: <RotateCw className="h-4 w-4" /> },
+    { id: 'delete', label: t('panel.pageOps.delete'), icon: <Trash2 className="h-4 w-4" /> },
+    { id: 'extract', label: t('panel.pageOps.extract'), icon: <FileOutput className="h-4 w-4" /> },
   ]
 
   return (
@@ -61,17 +63,17 @@ export function PageOperations({ pdf }: PageOperationsProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <RotateCw className="h-5 w-5" />
-          页面操作
+          {t('panel.pageOps.title')}
         </CardTitle>
-        <CardDescription>旋转、删除或提取 PDF 中的特定页面。</CardDescription>
+        <CardDescription>{t('panel.pageOps.description')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {pdf.files.length === 0 ? (
-          <p className="text-sm text-muted-foreground">请先添加 PDF 文件</p>
+          <p className="text-sm text-muted-foreground">{t('panel.pageOps.selectFile')}</p>
         ) : (
           <>
             <div className="space-y-2">
-              <label className="text-sm font-medium">选择文件</label>
+              <label className="text-sm font-medium">{t('panel.pageOps.selectFileLabel')}</label>
               <div className="flex flex-wrap gap-2">
                 {pdf.files.map((file) => (
                   <Badge
@@ -94,13 +96,13 @@ export function PageOperations({ pdf }: PageOperationsProps) {
               >
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Info className="h-4 w-4" />
-                  <span>共 {selectedFileData.pageCount} 页</span>
+                  <span>{t('panel.pageOps.totalPages', { count: selectedFileData.pageCount })}</span>
                 </div>
 
                 <Separator />
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">操作类型</label>
+                  <label className="text-sm font-medium">{t('panel.pageOps.operationType')}</label>
                   <div className="flex gap-2">
                     {operations.map((op) => (
                       <Button
@@ -118,7 +120,7 @@ export function PageOperations({ pdf }: PageOperationsProps) {
 
                 {operation === 'rotate' && (
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">旋转角度</label>
+                    <label className="text-sm font-medium">{t('panel.pageOps.angle')}</label>
                     <div className="flex gap-2">
                       {[90, 180, 270].map((angle) => (
                         <Button
@@ -136,21 +138,17 @@ export function PageOperations({ pdf }: PageOperationsProps) {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">
-                    {operation === 'rotate'
-                      ? '旋转页面'
-                      : operation === 'delete'
-                        ? '删除页面'
-                        : '提取页面'}
+                    {t('panel.pageOps.pageRangeLabel')}
                   </label>
                   <input
                     type="text"
                     value={pageRange}
                     onChange={(e) => setPageRange(e.target.value)}
-                    placeholder="例如: 1-3, 5, 7-10"
+                    placeholder={t('panel.pageOps.pageRangePlaceholder')}
                     className="w-full px-3 py-2 border rounded-md bg-background"
                   />
                   <p className="text-xs text-muted-foreground">
-                    支持格式：1-3（范围）、5（单页）、1-3, 5, 7-10（组合）
+                    {t('panel.pageOps.pageRangeHint')}
                   </p>
                 </div>
               </motion.div>
@@ -163,7 +161,7 @@ export function PageOperations({ pdf }: PageOperationsProps) {
                 className="space-y-2"
               >
                 <Progress value={progress} />
-                <p className="text-sm text-muted-foreground text-center">正在处理... {progress}%</p>
+                <p className="text-sm text-muted-foreground text-center">{t('panel.pageOps.processing', { progress })}</p>
               </motion.div>
             )}
 
@@ -176,17 +174,13 @@ export function PageOperations({ pdf }: PageOperationsProps) {
                 {isProcessing ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    处理中...
+                    {t('panel.pageOps.processingBtn')}
                   </>
                 ) : (
                   <>
                     {operations.find((o) => o.id === operation)?.icon}
                     <span className="ml-2">
-                      {operation === 'rotate'
-                        ? '旋转页面'
-                        : operation === 'delete'
-                          ? '删除页面'
-                          : '提取页面'}
+                      {t(`panel.pageOps.${operation}`)}
                     </span>
                   </>
                 )}
@@ -194,7 +188,7 @@ export function PageOperations({ pdf }: PageOperationsProps) {
               {isProcessing && (
                 <Button variant="outline" onClick={cancel}>
                   <XCircle className="mr-2 h-4 w-4" />
-                  取消
+                  {t('panel.pageOps.cancel')}
                 </Button>
               )}
             </div>

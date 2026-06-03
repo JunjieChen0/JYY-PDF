@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import { Upload, FileText, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -11,6 +12,7 @@ interface FileDropZoneProps {
 }
 
 export function FileDropZone({ onFiles, className, disabled = false }: FileDropZoneProps) {
+  const { t } = useTranslation()
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
       if (disabled) return
@@ -34,7 +36,7 @@ export function FileDropZone({ onFiles, className, disabled = false }: FileDropZ
     <div
       {...getRootProps()}
       role="button"
-      aria-label="拖拽或点击添加PDF文件"
+      aria-label={t('app.dropzone.ariaLabel')}
       aria-disabled={disabled}
       tabIndex={disabled ? -1 : 0}
       className={cn(
@@ -44,7 +46,7 @@ export function FileDropZone({ onFiles, className, disabled = false }: FileDropZ
         className,
       )}
     >
-      <input {...getInputProps()} aria-label="选择PDF文件" disabled={disabled} />
+      <input {...getInputProps()} aria-label={t('app.dropzone.ariaLabel')} disabled={disabled} />
       <motion.div
         initial={false}
         animate={{ scale: isDragActive ? 1.1 : 1 }}
@@ -59,13 +61,13 @@ export function FileDropZone({ onFiles, className, disabled = false }: FileDropZ
         )}
       </motion.div>
       {disabled ? (
-        <p className="text-lg font-medium mb-2 text-muted-foreground">处理中，无法添加文件</p>
+        <p className="text-lg font-medium mb-2 text-muted-foreground">{t('app.dropzone.processing')}</p>
       ) : isDragActive ? (
-        <p className="text-lg font-medium text-primary">松开鼠标添加文件</p>
+        <p className="text-lg font-medium text-primary">{t('app.dropzone.dragActive')}</p>
       ) : (
         <>
-          <p className="text-lg font-medium mb-2">拖拽 PDF 文件到这里</p>
-          <p className="text-sm text-muted-foreground">或点击选择文件</p>
+          <p className="text-lg font-medium mb-2">{t('app.dropzone.dragOrClick')}</p>
+          <p className="text-sm text-muted-foreground">{t('app.dropzone.hint')}</p>
         </>
       )}
     </div>

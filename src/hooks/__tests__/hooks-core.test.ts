@@ -335,7 +335,7 @@ describe('usePDFSignature', () => {
       }
     })
     expect(err).toBeInstanceOf(Error)
-    expect((err as Error).message).toMatch(/JavaScript/)
+    expect((err as Error).message).toBe('PDF_HAS_JAVASCRIPT')
   })
 
   test('throws for invalid page index', async () => {

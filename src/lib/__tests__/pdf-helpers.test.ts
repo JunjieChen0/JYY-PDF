@@ -114,7 +114,7 @@ describe('validatePdfHeader', () => {
   it('throws for invalid header', () => {
     const encoder = new TextEncoder()
     const data = encoder.encode('NOT A PDF')
-    expect(() => validatePdfHeader(data)).toThrow('不是有效的PDF文档')
+    expect(() => validatePdfHeader(data)).toThrow('INVALID_PDF')
   })
 
   it('throws for empty data', () => {

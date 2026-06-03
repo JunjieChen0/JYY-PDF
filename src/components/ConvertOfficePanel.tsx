@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { FileText, ArrowRight, Loader2, Upload, CheckSquare, Square } from 'lucide-react'
-import { t, ErrorCode } from '@/lib/i18n'
+import { ErrorCode } from '@/lib/i18n'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -17,13 +18,14 @@ interface ConvertOfficePanelProps {
 }
 
 export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
+  const { t } = useTranslation()
   const { selectedFiles, selectedCount, isAllSelected, toggleFile, toggleAll, isSelected } =
     useFileSelection(pdf.files)
   const [direction, setDirection] = useState<'pdfToWord' | 'wordToPdf'>('pdfToWord')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { isProcessing, progress, execute, cancel } = useOperation({
-    errorMessagePrefix: '转换失败',
-    onCancelMessage: '已取消转换',
+    errorMessagePrefix: t('errorPrefix.convert'),
+    onCancelMessage: t('common.cancelled'),
   })
 
   const handleWordToPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -37,12 +39,12 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
         const file = files[i]
         const filePath = window.electronAPI.getPathForFile(file)
         if (!filePath) {
-          toast.error(`无法获取文件路径：${file.name}`)
+          toast.error(t('convert.wordReadFailed'))
           continue
         }
         const ext = filePath.split('.').pop()?.toLowerCase()
         if (!['doc', 'docx'].includes(ext || '')) {
-          toast.warning(`跳过非Word文件：${file.name}`)
+          toast.warning(t('convert.invalidWordData'))
           continue
         }
         validFiles.push(file)
@@ -66,7 +68,7 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
     void undefined
 
     if (result && result > 0) {
-      toast.success('全部转换完成！')
+      toast.success(t('convert.allCompleted'))
     }
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
@@ -95,7 +97,7 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
     )
 
     if (result && result > 0) {
-      toast.success('全部转换完成！')
+      toast.success(t('convert.allCompleted'))
     }
   }
 
@@ -104,9 +106,9 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
-          格式转换
+          {t('panel.convertOffice.title')}
         </CardTitle>
-        <CardDescription>PDF与Word文档互相转换</CardDescription>
+        <CardDescription>{t('panel.convertOffice.description')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
@@ -116,7 +118,7 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
             onClick={() => setDirection('pdfToWord')}
           >
             <FileText className="h-4 w-4" />
-            PDF → Word
+            {t('panel.convertOffice.pdfToWord')}
             <ArrowRight className="h-3 w-3" />
             <FileText className="h-4 w-4" />
           </Button>
@@ -126,7 +128,7 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
             onClick={() => setDirection('wordToPdf')}
           >
             <FileText className="h-4 w-4" />
-            Word → PDF
+            {t('panel.convertOffice.wordToPdf')}
             <ArrowRight className="h-3 w-3" />
             <FileText className="h-4 w-4" />
           </Button>
@@ -139,22 +141,22 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
             className="space-y-4"
           >
             {pdf.files.length === 0 ? (
-              <p className="text-sm text-muted-foreground">请先添加PDF文件</p>
+              <p className="text-sm text-muted-foreground">{t('panel.convertOffice.selectFiles')}</p>
             ) : (
               <>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label>选择文件</Label>
+                    <Label>{t('panel.convertOffice.selectWordFiles')}</Label>
                     <Button variant="ghost" size="sm" onClick={toggleAll} className="h-7 text-xs">
                       {isAllSelected ? (
                         <>
                           <CheckSquare className="mr-1 h-3.5 w-3.5" />
-                          取消全选
+                          {t('fileSelection.deselectAll')}
                         </>
                       ) : (
                         <>
                           <Square className="mr-1 h-3.5 w-3.5" />
-                          全选
+                          {t('fileSelection.selectAll')}
                         </>
                       )}
                     </Button>
@@ -172,7 +174,7 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
                     ))}
                   </div>
                   {selectedCount > 0 && (
-                    <p className="text-xs text-muted-foreground">已选择 {selectedCount} 个文件</p>
+                    <p className="text-xs text-muted-foreground">{t('fileSelection.selected', { count: selectedCount })}</p>
                   )}
                 </div>
 
@@ -184,12 +186,12 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
                   {isProcessing ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      转换中...
+                      {t('common.processing')}
                     </>
                   ) : (
                     <>
                       <FileText className="mr-2 h-4 w-4" />
-                      开始转换
+                      {t('panel.convertOffice.startConvert')}
                     </>
                   )}
                 </Button>
@@ -207,8 +209,8 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
             <div className="flex flex-col items-center gap-4 p-6 border-2 border-dashed rounded-lg">
               <Upload className="h-10 w-10 text-muted-foreground" />
               <div className="text-center">
-                <p className="text-sm font-medium">选择 Word 文档</p>
-                <p className="text-xs text-muted-foreground mt-1">支持 .docx / .doc 格式</p>
+                <p className="text-sm font-medium">{t('panel.convertOffice.selectWordFiles')}</p>
+                <p className="text-xs text-muted-foreground mt-1">.docx / .doc</p>
               </div>
               <Button
                 variant="outline"
@@ -218,12 +220,12 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
                 {isProcessing ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    转换中...
+                    {t('common.processing')}
                   </>
                 ) : (
                   <>
                     <Upload className="mr-2 h-4 w-4" />
-                    选择文件
+                    {t('panel.convertOffice.selectWordFiles')}
                   </>
                 )}
               </Button>
@@ -246,20 +248,20 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
             className="space-y-2"
           >
             <Progress value={progress} />
-            <p className="text-sm text-muted-foreground text-center">正在转换... {progress}%</p>
+            <p className="text-sm text-muted-foreground text-center">{t('common.processing')} {progress}%</p>
           </motion.div>
         )}
 
         {isProcessing && (
           <Button variant="destructive" className="w-full" onClick={cancel}>
-            取消
+            {t('panel.convertOffice.cancel')}
           </Button>
         )}
 
         <div className="text-xs text-muted-foreground space-y-1">
-          <p>• PDF→Word：提取文字内容生成Word文档（纯文本格式）</p>
-          <p>• Word→PDF：保持原始排版转换为PDF（需要mammoth库）</p>
-          <p>• 复杂排版的文档转换后可能需要手动调整</p>
+          <p>• {t('panel.convertOffice.pdfToWordHint')}</p>
+          <p>• {t('panel.convertOffice.wordToPdfHint')}</p>
+          <p>• {t('panel.convertOffice.complexLayoutHint')}</p>
         </div>
       </CardContent>
     </Card>

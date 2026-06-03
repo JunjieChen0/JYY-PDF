@@ -58,14 +58,14 @@ export function usePDFOCR(files: PDFFile[]) {
             timer = setTimeout(() => {
               if (!settled) {
                 settled = true
-                reject(new Error(`${label}超时（${timeoutMs / 1000}秒）`))
+                reject(new Error(t(ErrorCode.OCR_TIMEOUT, { label, seconds: timeoutMs / 1000 })))
               }
             }, timeoutMs)
             token?.onCancel(() => {
               if (!settled) {
                 settled = true
                 clearTimeout(timer)
-                reject(new Error('操作已取消'))
+                reject(new Error(t(ErrorCode.CANCELLED)))
               }
             })
           }),
@@ -93,8 +93,8 @@ export function usePDFOCR(files: PDFFile[]) {
             await page.render({ canvasContext: ctx, viewport }).promise
             const {
               data: { text },
-            } = await withTimeout(worker.recognize(canvas), OCR_PAGE_TIMEOUT_MS, `第${i}页OCR识别`)
-            fullText += (i > 1 ? '\n' : '') + `--- 第${i}页 ---\n${text}\n`
+            } = await withTimeout(worker.recognize(canvas), OCR_PAGE_TIMEOUT_MS, t(ErrorCode.OCR_PAGE_LABEL, { page: i }))
+            fullText += (i > 1 ? '\n' : '') + `${t('OCR_PAGE_HEADER', { page: i })}\n${text}\n`
           } finally {
             canvas.width = 0
             canvas.height = 0
@@ -107,7 +107,7 @@ export function usePDFOCR(files: PDFFile[]) {
 
       const result = await window.electronAPI.saveFile({
         defaultPath: `${file.name.replace(/\.pdf$/i, '')}_ocr.txt`,
-        filters: [{ name: '文本文件', extensions: ['txt'] }],
+        filters: [{ name: t('TEXT_FILES'), extensions: ['txt'] }],
       })
 
       if (result.canceled || !result.filePath) return null
@@ -117,7 +117,7 @@ export function usePDFOCR(files: PDFFile[]) {
         result.filePath,
         encoder.encode(fullText),
       )
-      checkResult(writeResult, '写入文件失败：')
+      checkResult(writeResult, t(ErrorCode.WRITE_FILE_FAILED))
 
       return result.filePath
     },

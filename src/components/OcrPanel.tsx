@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { t, ErrorCode } from '@/lib/i18n'
+import { useTranslation } from 'react-i18next'
+import { ErrorCode } from '@/lib/i18n'
 import { motion } from 'framer-motion'
 import { ScanText, CheckSquare, Square } from 'lucide-react'
 import { toast } from 'sonner'
@@ -23,21 +24,23 @@ interface OcrPanelProps {
   pdf: UsePDFReturn
 }
 
-const LANGUAGES = [
-  { value: 'chi_sim+eng', label: '中文简体 + 英文' },
-  { value: 'chi_tra+eng', label: '中文繁体 + 英文' },
-  { value: 'eng', label: '仅英文' },
-  { value: 'jpn+eng', label: '日文 + 英文' },
-  { value: 'kor+eng', label: '韩文 + 英文' },
-]
-
 export function OcrPanel({ pdf }: OcrPanelProps) {
+  const { t } = useTranslation()
   const { selectedFiles, selectedCount, isAllSelected, toggleFile, toggleAll, isSelected } =
     useFileSelection(pdf.files)
+
+  const LANGUAGES = [
+    { value: 'chi_sim+eng', label: t('panel.ocr.langChineseSimplified') },
+    { value: 'chi_tra+eng', label: t('panel.ocr.langChineseTraditional') },
+    { value: 'eng', label: t('panel.ocr.langEnglishOnly') },
+    { value: 'jpn+eng', label: t('panel.ocr.langJapanese') },
+    { value: 'kor+eng', label: t('panel.ocr.langKorean') },
+  ]
+
   const [language, setLanguage] = useState('chi_sim+eng')
   const { isProcessing, progress, execute, cancel } = useOperation({
-    errorMessagePrefix: 'OCR失败',
-    onCancelMessage: '已取消OCR操作',
+    errorMessagePrefix: t('errorPrefix.ocr'),
+    onCancelMessage: t('panel.ocr.cancelMessage'),
   })
 
   const handleOcr = async () => {
@@ -65,7 +68,7 @@ export function OcrPanel({ pdf }: OcrPanelProps) {
     )
 
     if (result) {
-      toast.success('全部OCR完成！')
+      toast.success(t('panel.ocr.completed'))
     }
   }
 
@@ -74,28 +77,28 @@ export function OcrPanel({ pdf }: OcrPanelProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <ScanText className="h-5 w-5" />
-          OCR文字识别
+          {t('panel.ocr.title')}
         </CardTitle>
-        <CardDescription>从扫描版PDF中提取文字，支持100+种语言</CardDescription>
+        <CardDescription>{t('panel.ocr.description')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {pdf.files.length === 0 ? (
-          <p className="text-sm text-muted-foreground">请先添加PDF文件</p>
+          <p className="text-sm text-muted-foreground">{t('panel.ocr.noFiles')}</p>
         ) : (
           <>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>选择文件</Label>
+                <Label>{t('panel.ocr.selectFileLabel')}</Label>
                 <Button variant="ghost" size="sm" onClick={toggleAll} className="h-7 text-xs">
                   {isAllSelected ? (
                     <>
                       <CheckSquare className="mr-1 h-3.5 w-3.5" />
-                      取消全选
+                      {t('panel.ocr.deselectAll')}
                     </>
                   ) : (
                     <>
                       <Square className="mr-1 h-3.5 w-3.5" />
-                      全选
+                      {t('panel.ocr.selectAll')}
                     </>
                   )}
                 </Button>
@@ -113,12 +116,12 @@ export function OcrPanel({ pdf }: OcrPanelProps) {
                 ))}
               </div>
               {selectedCount > 0 && (
-                <p className="text-xs text-muted-foreground">已选择 {selectedCount} 个文件</p>
+                <p className="text-xs text-muted-foreground">{t('panel.ocr.selectedCount', { count: selectedCount })}</p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label>识别语言</Label>
+              <Label>{t('panel.ocr.language')}</Label>
               <Select value={language} onValueChange={(v) => setLanguage(v as typeof language)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -137,11 +140,11 @@ export function OcrPanel({ pdf }: OcrPanelProps) {
               {!isProcessing ? (
                 <Button className="flex-1" onClick={handleOcr} disabled={selectedCount === 0}>
                   <ScanText className="mr-2 h-4 w-4" />
-                  开始识别
+                  {t('panel.ocr.start')}
                 </Button>
               ) : (
                 <Button variant="destructive" className="flex-1" onClick={cancel}>
-                  取消
+                  {t('panel.ocr.cancel')}
                 </Button>
               )}
             </div>
@@ -153,14 +156,14 @@ export function OcrPanel({ pdf }: OcrPanelProps) {
                 className="space-y-2"
               >
                 <Progress value={progress} />
-                <p className="text-sm text-muted-foreground text-center">正在识别... {progress}%</p>
+                <p className="text-sm text-muted-foreground text-center">{t('panel.ocr.recognizing', { progress })}</p>
               </motion.div>
             )}
 
             <div className="text-xs text-muted-foreground space-y-1">
-              <p>• 首次使用需下载语言模型（约25MB），请耐心等待</p>
-              <p>• 中文识别速度约5-15秒/页，英文约2-5秒/页</p>
-              <p>• 建议选择与文档匹配的语言以获得最佳效果</p>
+              <p>• {t('panel.ocr.downloadModelHint')}</p>
+              <p>• {t('panel.ocr.speedHint')}</p>
+              <p>• {t('panel.ocr.languageHint')}</p>
             </div>
           </>
         )}

@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Pen, Upload, Loader2, RotateCcw, Check, XCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,20 +14,21 @@ import { getPdfjsLib, PDFJS_CONFIG } from '@/lib/pdfjs-config'
 import { logger } from '@/lib/logger'
 import * as pdfDataStore from '@/lib/pdf-data-store'
 import { getRequiredPdfData } from '@/lib/pdf-helpers'
-import { t, ErrorCode } from '@/lib/i18n'
+import { ErrorCode } from '@/lib/i18n'
 
 interface SignaturePanelProps {
   pdf: UsePDFReturn
 }
 
 export function SignaturePanel({ pdf }: SignaturePanelProps) {
+  const { t } = useTranslation()
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [pageIndex, setPageIndex] = useState(0)
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const { isProcessing, progress, execute, cancel } = useOperation({
-    errorMessagePrefix: '签名失败',
-    onCancelMessage: '操作已取消',
+    errorMessagePrefix: t('errorPrefix.signature'),
+    onCancelMessage: t('panel.edit.operationCancelled'),
   })
   const [step, setStep] = useState<'draw' | 'position'>('draw')
   const [signPos, setSignPos] = useState({ x: 300, y: 100 })
@@ -79,7 +81,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
         if (msg.includes('password') || msg.includes('encrypt')) {
           toast.error(t(ErrorCode.PDF_ENCRYPTED_CANNOT_PREVIEW))
         } else {
-          logger.warn(`PDF预览加载失败(${file.name}): ${msg}`)
+          logger.warn(`PDF preview load failed (${file.name}): ${msg}`)
         }
       })
     return () => {
@@ -184,7 +186,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
     const dataUrl = canvas.toDataURL('image/png')
     setSignatureDataUrl(dataUrl)
     setStep('position')
-  }, [])
+  }, [t])
 
   const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -224,7 +226,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
       img.src = reader.result as string
     }
     reader.readAsArrayBuffer(file)
-  }, [])
+  }, [t])
 
   const handlePageClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -292,7 +294,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
     )
 
     if (outputPath) {
-      toast.success('签名完成！')
+      toast.success(t('panel.signature.completed'))
       setStep('draw')
       setSignatureDataUrl(null)
       clearCanvas()
@@ -308,6 +310,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
     pdf,
     clearCanvas,
     execute,
+    t,
   ])
 
   return (
@@ -315,17 +318,17 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Pen className="h-5 w-5" />
-          电子签名
+          {t('panel.signature.title')}
         </CardTitle>
-        <CardDescription>手绘签名或上传签名图片，嵌入到PDF文档中</CardDescription>
+        <CardDescription>{t('panel.signature.description')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {pdf.files.length === 0 ? (
-          <p className="text-sm text-muted-foreground">请先添加PDF文件</p>
+          <p className="text-sm text-muted-foreground">{t('panel.signature.selectFileHint')}</p>
         ) : (
           <>
             <div className="space-y-2">
-              <Label>选择文件</Label>
+              <Label>{t('panel.signature.selectFileLabel')}</Label>
               <div className="flex flex-wrap gap-2">
                 {pdf.files.map((file) => (
                   <Badge
@@ -342,7 +345,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
 
             {selectedFileData && selectedFileData.pageCount > 1 && (
               <div className="space-y-2">
-                <Label>选择页码</Label>
+                <Label>{t('panel.signature.selectPageLabel')}</Label>
                 <div className="flex flex-wrap gap-1">
                   {Array.from({ length: selectedFileData.pageCount }, (_, i) => (
                     <Badge
@@ -364,7 +367,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-3"
               >
-                <Label>请在下方手绘签名</Label>
+                <Label>{t('panel.signature.drawHint')}</Label>
                 <div className="relative">
                   <canvas
                     ref={canvasRef}
@@ -381,21 +384,21 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
                     onTouchEnd={endDraw}
                   />
                   <div className="absolute inset-0 flex items-center justify-center text-muted-foreground pointer-events-none opacity-50">
-                    在此处绘制您的签名
+                    {t('panel.signature.drawHere')}
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={clearCanvas}>
                     <RotateCcw className="mr-1 h-3 w-3" />
-                    清除
+                    {t('panel.signature.clear')}
                   </Button>
                   <Button size="sm" onClick={confirmSignature}>
                     <Check className="mr-1 h-3 w-3" />
-                    确认签名
+                    {t('panel.signature.confirm')}
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
                     <Upload className="mr-1 h-3 w-3" />
-                    上传图片
+                    {t('panel.signature.uploadSignature')}
                   </Button>
                   <input
                     ref={fileInputRef}
@@ -416,9 +419,9 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
               >
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
-                    <Label>点击或拖拽调整签名位置</Label>
+                    <Label>{t('panel.signature.dragToPosition')}</Label>
                     <div className="flex items-center gap-2">
-                      <Label className="text-xs">签名宽度:</Label>
+                      <Label className="text-xs">{t('panel.signature.signatureWidth')}</Label>
                       <input
                         type="range"
                         min="80"
@@ -431,7 +434,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    💡 直接拖拽签名可以调整位置，拖动滑块调整大小
+                    💡 {t('panel.signature.dragHint')}
                   </p>
                 </div>
                 <div
@@ -445,12 +448,12 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
                   {pageThumbnail ? (
                     <img
                       src={pageThumbnail}
-                      alt="页面预览"
+                      alt={t('panel.signature.pagePreview')}
                       className="absolute inset-0 w-full h-full object-contain"
                     />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
-                      加载页面预览中...
+                      {t('panel.signature.loadingPreview')}
                     </div>
                   )}
                   <div
@@ -465,7 +468,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
                   >
                     <img
                       src={signatureDataUrl}
-                      alt="签名预览"
+                      alt={t('panel.signature.signaturePreview')}
                       className="w-full h-auto border border-dashed border-blue-400 bg-white/50"
                       style={{ userSelect: 'none' }}
                     />
@@ -480,25 +483,25 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
                       setSignatureDataUrl(null)
                     }}
                   >
-                    重新签名
+                    {t('panel.signature.resign')}
                   </Button>
                   <Button size="sm" onClick={handleSign} disabled={isProcessing}>
                     {isProcessing ? (
                       <>
                         <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        处理中...
+                        {t('panel.signature.processing')}
                       </>
                     ) : (
                       <>
                         <Check className="mr-1 h-3 w-3" />
-                        确认签署
+                        {t('panel.signature.confirmSign')}
                       </>
                     )}
                   </Button>
                   {isProcessing && (
                     <Button variant="outline" size="sm" onClick={cancel}>
                       <XCircle className="mr-1 h-3 w-3" />
-                      取消
+                      {t('panel.signature.cancel')}
                     </Button>
                   )}
                 </div>

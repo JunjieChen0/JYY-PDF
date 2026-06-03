@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Hash, Loader2, XCircle, CheckSquare, Square } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,6 +25,7 @@ interface PageNumbersPanelProps {
 }
 
 export function PageNumbersPanel({ pdf }: PageNumbersPanelProps) {
+  const { t } = useTranslation()
   const { selectedFiles, selectedCount, isAllSelected, toggleFile, toggleAll, isSelected } =
     useFileSelection(pdf.files)
   const [position, setPosition] = useState<
@@ -36,8 +38,8 @@ export function PageNumbersPanel({ pdf }: PageNumbersPanelProps) {
   const [prefix, setPrefix] = useState('')
   const [currentFileIndex, setCurrentFileIndex] = useState(0)
   const { isProcessing, progress, execute, cancel } = useOperation({
-    errorMessagePrefix: '添加页码失败',
-    onCancelMessage: '已取消添加页码',
+    errorMessagePrefix: t('errorPrefix.pageNumber'),
+    onCancelMessage: t('errorPrefix.cancelled'),
   })
 
   const handleAddPageNumbers = async () => {
@@ -81,7 +83,7 @@ export function PageNumbersPanel({ pdf }: PageNumbersPanelProps) {
     setCurrentFileIndex(0)
 
     if (result && result > 0) {
-      toast.success(`页码添加完成！成功处理 ${result}/${fileIds.length} 个文件`)
+      toast.success(t('panel.pageNumbers.completed', { count: result, total: fileIds.length }))
     }
   }
 
@@ -92,28 +94,28 @@ export function PageNumbersPanel({ pdf }: PageNumbersPanelProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Hash className="h-5 w-5" />
-          添加页码
+          {t('panel.pageNumbers.title')}
         </CardTitle>
-        <CardDescription>给PDF的每一页添加页码</CardDescription>
+        <CardDescription>{t('panel.pageNumbers.description')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {pdf.files.length === 0 ? (
-          <p className="text-sm text-muted-foreground">请先添加PDF文件</p>
+          <p className="text-sm text-muted-foreground">{t('panel.pageNumbers.noFiles')}</p>
         ) : (
           <>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">选择文件</label>
+                <label className="text-sm font-medium">{t('panel.pageNumbers.selectFileLabel')}</label>
                 <Button variant="ghost" size="sm" onClick={toggleAll} className="h-7 text-xs">
                   {isAllSelected ? (
                     <>
                       <CheckSquare className="mr-1 h-3.5 w-3.5" />
-                      取消全选
+                      {t('fileSelection.deselectAll')}
                     </>
                   ) : (
                     <>
                       <Square className="mr-1 h-3.5 w-3.5" />
-                      全选
+                      {t('fileSelection.selectAll')}
                     </>
                   )}
                 </Button>
@@ -126,12 +128,12 @@ export function PageNumbersPanel({ pdf }: PageNumbersPanelProps) {
                     className="cursor-pointer"
                     onClick={() => toggleFile(file.id)}
                   >
-                    {file.name} ({file.pageCount}页)
+                    {file.name} ({file.pageCount}{t('panel.pageNumbers.pages')})
                   </Badge>
                 ))}
               </div>
               {selectedCount > 0 && (
-                <p className="text-xs text-muted-foreground">已选择 {selectedCount} 个文件</p>
+                <p className="text-xs text-muted-foreground">{t('fileSelection.selected', { count: selectedCount })}</p>
               )}
             </div>
 
@@ -141,50 +143,50 @@ export function PageNumbersPanel({ pdf }: PageNumbersPanelProps) {
               className="space-y-4 p-4 bg-muted rounded-lg"
             >
               <div className="space-y-2">
-                <Label>位置</Label>
+                <Label>{t('panel.pageNumbers.position')}</Label>
                 <Select value={position} onValueChange={(v) => setPosition(v as typeof position)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="top-left">左上</SelectItem>
-                    <SelectItem value="top-center">上中</SelectItem>
-                    <SelectItem value="top-right">右上</SelectItem>
-                    <SelectItem value="bottom-left">左下</SelectItem>
-                    <SelectItem value="bottom-center">下中</SelectItem>
-                    <SelectItem value="bottom-right">右下</SelectItem>
+                    <SelectItem value="top-left">{t('panel.pageNumbers.positionTopLeft')}</SelectItem>
+                    <SelectItem value="top-center">{t('panel.pageNumbers.positionTopCenter')}</SelectItem>
+                    <SelectItem value="top-right">{t('panel.pageNumbers.positionTopRight')}</SelectItem>
+                    <SelectItem value="bottom-left">{t('panel.pageNumbers.positionBottomLeft')}</SelectItem>
+                    <SelectItem value="bottom-center">{t('panel.pageNumbers.positionBottomCenter')}</SelectItem>
+                    <SelectItem value="bottom-right">{t('panel.pageNumbers.positionBottomRight')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label>页码格式</Label>
+                <Label>{t('panel.pageNumbers.format')}</Label>
                 <Select value={format} onValueChange={(v) => setFormat(v as typeof format)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="simple">简单数字 (1, 2, 3...)</SelectItem>
-                    <SelectItem value="ofTotal">总页数 (1/10, 2/10...)</SelectItem>
-                    <SelectItem value="custom">自定义前缀 (第1页, 第2页...)</SelectItem>
+                    <SelectItem value="simple">{t('panel.pageNumbers.formatSimple')}</SelectItem>
+                    <SelectItem value="ofTotal">{t('panel.pageNumbers.formatOfTotal')}</SelectItem>
+                    <SelectItem value="custom">{t('panel.pageNumbers.formatCustom')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {format === 'custom' && (
                 <div className="space-y-2">
-                  <Label htmlFor="prefix">前缀文字</Label>
+                  <Label htmlFor="prefix">{t('panel.pageNumbers.prefix')}</Label>
                   <Input
                     id="prefix"
                     value={prefix}
                     onChange={(e) => setPrefix(e.target.value)}
-                    placeholder="例如: 第"
+                    placeholder={t('panel.pageNumbers.prefixPlaceholder')}
                   />
                 </div>
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="startNumber">起始页码</Label>
+                <Label htmlFor="startNumber">{t('panel.pageNumbers.startNumber')}</Label>
                 <Input
                   id="startNumber"
                   type="number"
@@ -195,7 +197,7 @@ export function PageNumbersPanel({ pdf }: PageNumbersPanelProps) {
               </div>
 
               <div className="space-y-2">
-                <Label>字体大小: {fontSize}px</Label>
+                <Label>{t('panel.pageNumbers.fontSize', { size: fontSize })}</Label>
                 <input
                   type="range"
                   min="8"
@@ -207,7 +209,7 @@ export function PageNumbersPanel({ pdf }: PageNumbersPanelProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="color">颜色</Label>
+                <Label htmlFor="color">{t('panel.pageNumbers.color')}</Label>
                 <div className="flex gap-2 items-center">
                   <input
                     type="color"
@@ -226,7 +228,7 @@ export function PageNumbersPanel({ pdf }: PageNumbersPanelProps) {
 
               {sampleFile && (
                 <div className="p-3 bg-background rounded border text-sm">
-                  <div className="text-muted-foreground mb-1">预览效果</div>
+                  <div className="text-muted-foreground mb-1">{t('panel.pageNumbers.preview')}</div>
                   <div className="font-mono">
                     {format === 'ofTotal'
                       ? `${startNumber} / ${sampleFile.pageCount}`
@@ -246,19 +248,19 @@ export function PageNumbersPanel({ pdf }: PageNumbersPanelProps) {
                   {isProcessing ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      添加中...
+                      {t('panel.pageNumbers.processing')}
                     </>
                   ) : (
                     <>
                       <Hash className="mr-2 h-4 w-4" />
-                      {selectedCount > 1 ? `添加页码 (${selectedCount} 个文件)` : '添加页码'}
+                      {selectedCount > 1 ? t('panel.pageNumbers.startWithCount', { count: selectedCount }) : t('panel.pageNumbers.start')}
                     </>
                   )}
                 </Button>
                 {isProcessing && (
                   <Button variant="outline" onClick={cancel}>
                     <XCircle className="mr-2 h-4 w-4" />
-                    取消
+                    {t('panel.pageNumbers.cancel')}
                   </Button>
                 )}
               </div>
@@ -272,7 +274,7 @@ export function PageNumbersPanel({ pdf }: PageNumbersPanelProps) {
               >
                 <Progress value={progress} />
                 <p className="text-sm text-muted-foreground text-center">
-                  正在添加页码...{' '}
+                  {t('panel.pageNumbers.progress')}{' '}
                   {selectedCount > 1 ? `(${currentFileIndex + 1}/${selectedCount})` : ''} {progress}
                   %
                 </p>

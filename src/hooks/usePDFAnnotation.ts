@@ -45,9 +45,9 @@ export function usePDFAnnotation(files: PDFFile[]) {
         const totalPages = pdfDoc.getPageCount()
 
         const fontBytes = await window.electronAPI.readSystemFont('simsun')
-        checkResult(fontBytes, '读取系统字体失败，请确保系统已安装宋体字体')
+        checkResult(fontBytes, t(ErrorCode.FONT_READ_FAILED))
         const embeddedFont = await pdfDoc.embedFont(
-          assertUint8Array(fontBytes, '读取系统字体失败'),
+          assertUint8Array(fontBytes, t(ErrorCode.FONT_READ_FAILED)),
           { subset: true },
         )
 
@@ -57,7 +57,11 @@ export function usePDFAnnotation(files: PDFFile[]) {
           const ann = annotations[i]
           if (ann.pageIndex < 0 || ann.pageIndex >= totalPages) {
             throw new Error(
-              `标注页码越界（批注 #${i + 1} 指向第 ${ann.pageIndex + 1} 页，文档共 ${totalPages} 页）`,
+              t(ErrorCode.ANNOTATION_PAGE_OUT_OF_BOUNDS, {
+                index: i + 1,
+                page: ann.pageIndex + 1,
+                total: totalPages,
+              }),
             )
           }
           const page = pdfDoc.getPage(ann.pageIndex)
@@ -114,7 +118,7 @@ export function usePDFAnnotation(files: PDFFile[]) {
 
         const bytes = await pdfDoc.save()
         const writeResult = await window.electronAPI.writeFile(result.filePath, bytes)
-        checkResult(writeResult, '写入文件失败：')
+        checkResult(writeResult, t(ErrorCode.WRITE_FILE_FAILED))
 
         return result.filePath
       } finally {

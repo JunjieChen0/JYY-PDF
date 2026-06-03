@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { FileText, Loader2 } from 'lucide-react'
 import { getThumbnailFromCache, setThumbnailToCache } from '@/lib/pdf-data-store'
 
@@ -17,6 +18,7 @@ export function PageThumbnail({
   className = '',
   getThumbnail,
 }: PageThumbnailProps) {
+  const { t } = useTranslation()
   const [src, setSrc] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const mountedRef = useRef(true)
@@ -77,7 +79,7 @@ export function PageThumbnail({
   return (
     <img
       src={src}
-      alt="PDF 预览"
+      alt={t('app.fileList.pdfPreview')}
       className={`rounded object-cover ${className}`}
       style={{ width: maxWidth, height: maxWidth * 1.414 }}
     />

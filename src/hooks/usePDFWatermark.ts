@@ -82,7 +82,7 @@ export function usePDFWatermark(files: PDFFile[]) {
         const pages = pdfDoc.getPages()
         const {
           type,
-          content = '水印',
+          content = t('panel.watermark.defaultText'),
           position = 'center',
           opacity = DEFAULT_WATERMARK_OPACITY,
           fontSize = DEFAULT_WATERMARK_FONT_SIZE,
@@ -95,13 +95,13 @@ export function usePDFWatermark(files: PDFFile[]) {
 
         if (type === 'image' && options.imagePath) {
           const imageBuffer = await window.electronAPI.readFile(options.imagePath)
-          checkResult(imageBuffer, '读取水印图片失败')
+          checkResult(imageBuffer, t(ErrorCode.IMAGE_READ_FAILED))
           try {
-            embeddedImage = await pdfDoc.embedPng(assertUint8Array(imageBuffer, '读取水印图片失败'))
+            embeddedImage = await pdfDoc.embedPng(assertUint8Array(imageBuffer, t(ErrorCode.IMAGE_READ_FAILED)))
           } catch {
             try {
               embeddedImage = await pdfDoc.embedJpg(
-                assertUint8Array(imageBuffer, '读取水印图片失败'),
+                assertUint8Array(imageBuffer, t(ErrorCode.IMAGE_READ_FAILED)),
               )
             } catch {
               throw new Error(t(ErrorCode.UNSUPPORTED_IMAGE_FORMAT))
@@ -111,8 +111,8 @@ export function usePDFWatermark(files: PDFFile[]) {
 
         if (type === 'text') {
           const fontBytes = await window.electronAPI.readSystemFont('simsun')
-          checkResult(fontBytes, '读取系统字体失败，请确保系统已安装宋体字体')
-          embeddedFont = await pdfDoc.embedFont(assertUint8Array(fontBytes, '读取系统字体失败'), {
+          checkResult(fontBytes, t(ErrorCode.SYSTEM_FONT_NOT_INSTALLED))
+          embeddedFont = await pdfDoc.embedFont(assertUint8Array(fontBytes, t(ErrorCode.FONT_READ_FAILED)), {
             subset: true,
           })
         }
@@ -218,14 +218,14 @@ export function usePDFWatermark(files: PDFFile[]) {
         }
 
         if (tileTruncated) {
-          logger.warn('平铺水印达到上限 500 个/页，可能存在未覆盖区域')
+          logger.warn('Watermark tile limit reached (500/page), some areas may be uncovered')
           throw new Error(t(ErrorCode.WATERMARK_TILE_LIMIT))
         }
 
         onProgress?.(95)
         const bytes = await pdfDoc.save()
         const writeResult = await window.electronAPI.writeFile(result.filePath, bytes)
-        checkResult(writeResult, '写入文件失败：')
+        checkResult(writeResult, t(ErrorCode.WRITE_FILE_FAILED))
         onProgress?.(100)
 
         return result.filePath

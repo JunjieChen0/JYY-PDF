@@ -11,7 +11,8 @@ import {
   EyeOff,
   Shield,
 } from 'lucide-react'
-import { t, ErrorCode } from '@/lib/i18n'
+import { useTranslation } from 'react-i18next'
+import { ErrorCode } from '@/lib/i18n'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -38,6 +39,7 @@ interface EncryptPanelProps {
 }
 
 export function EncryptPanel({ pdf }: EncryptPanelProps) {
+  const { t } = useTranslation()
   const { selectedFiles, selectedCount, isAllSelected, toggleFile, toggleAll, isSelected } =
     useFileSelection(pdf.files)
   const [mode, setMode] = useState<EncryptMode>('encrypt')
@@ -55,8 +57,8 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
   const [restrictExtract, setRestrictExtract] = useState<'y' | 'n'>('y')
   const [currentFileIndex, setCurrentFileIndex] = useState(0)
   const { isProcessing, progress, execute, cancel } = useOperation({
-    errorMessagePrefix: mode === 'encrypt' ? '加密失败' : '解密失败',
-    onCancelMessage: mode === 'encrypt' ? '已取消加密操作' : '已取消解密操作',
+    errorMessagePrefix: t(mode === 'encrypt' ? 'errorPrefix.encrypt' : 'errorPrefix.decrypt'),
+    onCancelMessage: t('errorPrefix.cancelled'),
   })
 
   const handleEncrypt = async () => {
@@ -105,7 +107,7 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
     setCurrentFileIndex(0)
 
     if (result && result > 0) {
-      toast.success(`加密完成！成功处理 ${result}/${fileIds.length} 个文件`)
+      toast.success(t('panel.encrypt.completedWithCount', { count: result, total: fileIds.length }))
     }
   }
 
@@ -141,7 +143,7 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
     setCurrentFileIndex(0)
 
     if (result && result > 0) {
-      toast.success(`解密完成！成功处理 ${result}/${fileIds.length} 个文件`)
+      toast.success(t('panel.encrypt.decryptCompletedWithCount', { count: result, total: fileIds.length }))
     }
   }
 
@@ -150,28 +152,28 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Lock className="h-5 w-5" />
-          PDF加密/解密
+          {t('panel.encrypt.title')}
         </CardTitle>
-        <CardDescription>给PDF添加密码保护或解除密码保护</CardDescription>
+        <CardDescription>{t('panel.encrypt.description')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {pdf.files.length === 0 ? (
-          <p className="text-sm text-muted-foreground">请先添加PDF文件</p>
+          <p className="text-sm text-muted-foreground">{t('panel.encrypt.selectFile')}</p>
         ) : (
           <>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">选择文件</label>
+                <label className="text-sm font-medium">{t('panel.encrypt.selectFiles')}</label>
                 <Button variant="ghost" size="sm" onClick={toggleAll} className="h-7 text-xs">
                   {isAllSelected ? (
                     <>
                       <CheckSquare className="mr-1 h-3.5 w-3.5" />
-                      取消全选
+                      {t('fileSelection.deselectAll')}
                     </>
                   ) : (
                     <>
                       <Square className="mr-1 h-3.5 w-3.5" />
-                      全选
+                      {t('fileSelection.selectAll')}
                     </>
                   )}
                 </Button>
@@ -189,7 +191,7 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
                 ))}
               </div>
               {selectedCount > 0 && (
-                <p className="text-xs text-muted-foreground">已选择 {selectedCount} 个文件</p>
+                <p className="text-xs text-muted-foreground">{t('fileSelection.selected', { count: selectedCount })}</p>
               )}
             </div>
 
@@ -200,7 +202,7 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
                 onClick={() => setMode('encrypt')}
               >
                 <Lock className="h-4 w-4" />
-                加密
+                {t('panel.encrypt.encryptMode')}
               </Button>
               <Button
                 variant={mode === 'decrypt' ? 'default' : 'outline'}
@@ -208,7 +210,7 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
                 onClick={() => setMode('decrypt')}
               >
                 <Unlock className="h-4 w-4" />
-                解密
+                {t('panel.encrypt.decryptMode')}
               </Button>
             </div>
 
@@ -221,12 +223,12 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
               {mode === 'encrypt' ? (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="userPassword">用户密码（打开文档需要）</Label>
+                    <Label htmlFor="userPassword">{t('panel.encrypt.userPassword')}</Label>
                     <div className="relative">
                       <Input
                         id="userPassword"
                         type={showUserPassword ? 'text' : 'password'}
-                        placeholder="设置用户密码"
+                        placeholder={t('panel.encrypt.userPasswordPlaceholder')}
                         value={userPassword}
                         onChange={(e) => setUserPassword(e.target.value)}
                         className="pr-10"
@@ -247,12 +249,12 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="ownerPassword">所有者密码（修改权限需要）</Label>
+                    <Label htmlFor="ownerPassword">{t('panel.encrypt.ownerPassword')}</Label>
                     <div className="relative">
                       <Input
                         id="ownerPassword"
                         type={showOwnerPassword ? 'text' : 'password'}
-                        placeholder="设置所有者密码（可选）"
+                        placeholder={t('panel.encrypt.ownerPasswordPlaceholder')}
                         value={ownerPassword}
                         onChange={(e) => setOwnerPassword(e.target.value)}
                         className="pr-10"
@@ -273,12 +275,12 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>加密强度</Label>
+                    <Label>{t('panel.encrypt.keyLength')}</Label>
                     <div className="grid grid-cols-2 gap-2">
                       {(
                         [
-                          { value: 256, label: 'AES-256', desc: '推荐' },
-                          { value: 128, label: 'AES-128', desc: '不推荐' },
+                          { value: 256, label: 'AES-256', desc: t('panel.encrypt.recommended') },
+                          { value: 128, label: 'AES-128', desc: t('panel.encrypt.notRecommended') },
                         ] as const
                       ).map((opt) => (
                         <Button
@@ -297,12 +299,12 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
                   <div className="space-y-3 pt-2 border-t">
                     <div className="flex items-center gap-2">
                       <Shield className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">权限设置</span>
+                      <span className="text-sm font-medium">{t('panel.encrypt.restrictions')}</span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <Label className="text-xs">打印</Label>
+                        <Label className="text-xs">{t('panel.encrypt.print')}</Label>
                         <Select
                           value={restrictPrint}
                           onValueChange={(v) => setRestrictPrint(v as typeof restrictPrint)}
@@ -311,14 +313,14 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="full">允许打印</SelectItem>
-                            <SelectItem value="low">仅低质量打印</SelectItem>
-                            <SelectItem value="none">禁止打印</SelectItem>
+                            <SelectItem value="full">{t('panel.encrypt.allowPrint')}</SelectItem>
+                            <SelectItem value="low">{t('panel.encrypt.allowPrintLow')}</SelectItem>
+                            <SelectItem value="none">{t('panel.encrypt.disallowPrint')}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">修改</Label>
+                        <Label className="text-xs">{t('panel.encrypt.modify')}</Label>
                         <Select
                           value={restrictModify}
                           onValueChange={(v) => setRestrictModify(v as typeof restrictModify)}
@@ -327,11 +329,11 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="all">允许修改</SelectItem>
-                            <SelectItem value="annotate">仅批注</SelectItem>
-                            <SelectItem value="form">仅填写表单</SelectItem>
-                            <SelectItem value="assembly">仅页面组合</SelectItem>
-                            <SelectItem value="none">禁止修改</SelectItem>
+                            <SelectItem value="all">{t('panel.encrypt.allowModify')}</SelectItem>
+                            <SelectItem value="annotate">{t('panel.encrypt.allowAnnotate')}</SelectItem>
+                            <SelectItem value="form">{t('panel.encrypt.formOnly')}</SelectItem>
+                            <SelectItem value="assembly">{t('panel.encrypt.assemblyOnly')}</SelectItem>
+                            <SelectItem value="none">{t('panel.encrypt.disallowModify')}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -344,19 +346,19 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
                         onCheckedChange={(checked) => setRestrictExtract(checked ? 'n' : 'y')}
                       />
                       <Label htmlFor="restrictExtract" className="text-xs">
-                        禁止复制/提取内容
+                        {t('panel.encrypt.disallowCopy')}
                       </Label>
                     </div>
                   </div>
                 </>
               ) : (
                 <div className="space-y-2">
-                  <Label htmlFor="decryptPassword">输入密码</Label>
+                  <Label htmlFor="decryptPassword">{t('panel.encrypt.decryptPasswordLabel')}</Label>
                   <div className="relative">
                     <Input
                       id="decryptPassword"
                       type={showDecryptPassword ? 'text' : 'password'}
-                      placeholder="输入PDF密码"
+                      placeholder={t('panel.encrypt.decryptPasswordPlaceholder')}
                       value={decryptPassword}
                       onChange={(e) => setDecryptPassword(e.target.value)}
                       className="pr-10"
@@ -375,7 +377,7 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    输入PDF的用户密码或所有者密码以解除加密保护
+                    {t('panel.encrypt.decryptHint')}
                   </p>
                 </div>
               )}
@@ -389,7 +391,7 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
               >
                 <Progress value={progress} />
                 <p className="text-sm text-muted-foreground text-center">
-                  {mode === 'encrypt' ? '正在加密' : '正在解密'}...{' '}
+                  {mode === 'encrypt' ? t('panel.encrypt.encrypting') : t('panel.encrypt.decrypting')}...{' '}
                   {selectedCount > 1 ? `(${currentFileIndex + 1}/${selectedCount})` : ''} {progress}
                   %
                 </p>
@@ -410,7 +412,7 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
                 {isProcessing ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {mode === 'encrypt' ? '加密中...' : '解密中...'}
+                    {mode === 'encrypt' ? t('panel.encrypt.encryptingProgress') : t('panel.encrypt.decryptingProgress')}
                   </>
                 ) : (
                   <>
@@ -421,18 +423,18 @@ export function EncryptPanel({ pdf }: EncryptPanelProps) {
                     )}
                     {mode === 'encrypt'
                       ? selectedCount > 1
-                        ? `加密 ${selectedCount} 个文件`
-                        : '开始加密'
+                        ? t('panel.encrypt.encryptFiles', { count: selectedCount })
+                        : t('panel.encrypt.startEncrypt')
                       : selectedCount > 1
-                        ? `解密 ${selectedCount} 个文件`
-                        : '开始解密'}
+                        ? t('panel.encrypt.decryptFiles', { count: selectedCount })
+                        : t('panel.encrypt.startDecrypt')}
                   </>
                 )}
               </Button>
               {isProcessing && (
                 <Button variant="outline" onClick={cancel}>
                   <XCircle className="mr-2 h-4 w-4" />
-                  取消
+                  {t('panel.encrypt.cancel')}
                 </Button>
               )}
             </div>

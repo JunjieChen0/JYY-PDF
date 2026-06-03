@@ -11,6 +11,7 @@ import {
   Plus,
   XCircle,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,30 +26,31 @@ import { getPdfjsLib, PDFJS_CONFIG } from '@/lib/pdfjs-config'
 import { logger } from '@/lib/logger'
 import * as pdfDataStore from '@/lib/pdf-data-store'
 import { getRequiredPdfData } from '@/lib/pdf-helpers'
-import { t, ErrorCode } from '@/lib/i18n'
+import { ErrorCode } from '@/lib/i18n'
 
 interface EditPanelProps {
   pdf: UsePDFReturn
 }
 
 const TOOL_TYPES = [
-  { value: 'text', label: '文字', icon: Type },
-  { value: 'rect', label: '矩形', icon: Square },
-  { value: 'circle', label: '圆形', icon: Circle },
-  { value: 'highlight', label: '高亮', icon: Highlighter },
+  { value: 'text', labelKey: 'panel.edit.labelText', icon: Type },
+  { value: 'rect', labelKey: 'panel.edit.labelRect', icon: Square },
+  { value: 'circle', labelKey: 'panel.edit.labelCircle', icon: Circle },
+  { value: 'highlight', labelKey: 'panel.edit.labelHighlight', icon: Highlighter },
 ] as const
 
 export function EditPanel({ pdf }: EditPanelProps) {
+  const { t } = useTranslation()
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [pageIndex, setPageIndex] = useState(0)
   const [tool, setTool] = useState<Annotation['type']>('text')
-  const [text, setText] = useState('标注文字')
+  const [text, setText] = useState(t('panel.edit.textPlaceholder'))
   const [color, setColor] = useState('#ff0000')
   const [fontSize, setFontSize] = useState(16)
   const [annotations, setAnnotations] = useState<Annotation[]>([])
   const { isProcessing, progress, execute, cancel } = useOperation({
-    errorMessagePrefix: '编辑失败',
-    onCancelMessage: '操作已取消',
+    errorMessagePrefix: t('panel.edit.editFailed'),
+    onCancelMessage: t('panel.edit.operationCancelled'),
   })
 
   const selectedFileData = pdf.files.find((f) => f.id === selectedFile)
@@ -94,7 +96,7 @@ export function EditPanel({ pdf }: EditPanelProps) {
       if (msg.includes('password') || msg.includes('encrypt')) {
         toast.error(t(ErrorCode.PDF_ENCRYPTED_CANNOT_EDIT))
       } else {
-        logger.warn(`编辑面板页面加载失败: ${msg}`)
+        logger.warn(`Edit panel page load failed: ${msg}`)
         toast.error(t(ErrorCode.PAGE_SIZE_FETCH_FAILED))
       }
     }
@@ -120,7 +122,7 @@ export function EditPanel({ pdf }: EditPanelProps) {
     )
 
     if (outputPath) {
-      toast.success('编辑保存成功！')
+      toast.success(t('panel.edit.saved'))
       setAnnotations([])
     }
   }
@@ -130,17 +132,17 @@ export function EditPanel({ pdf }: EditPanelProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Edit3 className="h-5 w-5" />
-          PDF编辑
+          {t('panel.edit.title')}
         </CardTitle>
-        <CardDescription>在PDF上添加文字、矩形、圆形、高亮等标注</CardDescription>
+        <CardDescription>{t('panel.edit.description')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {pdf.files.length === 0 ? (
-          <p className="text-sm text-muted-foreground">请先添加PDF文件</p>
+          <p className="text-sm text-muted-foreground">{t('panel.edit.selectFile')}</p>
         ) : (
           <>
             <div className="space-y-2">
-              <Label>选择文件</Label>
+              <Label>{t('panel.edit.selectFileLabel')}</Label>
               <div className="flex flex-wrap gap-2">
                 {pdf.files.map((file) => (
                   <Badge
@@ -157,7 +159,7 @@ export function EditPanel({ pdf }: EditPanelProps) {
 
             {selectedFileData && selectedFileData.pageCount > 1 && (
               <div className="space-y-2">
-                <Label>选择页码</Label>
+                <Label>{t('panel.edit.selectPageLabel')}</Label>
                 <div className="flex flex-wrap gap-1">
                   {Array.from({ length: selectedFileData.pageCount }, (_, i) => (
                     <Badge
@@ -174,9 +176,9 @@ export function EditPanel({ pdf }: EditPanelProps) {
             )}
 
             <div className="space-y-2">
-              <Label>工具类型</Label>
+              <Label>{t('panel.edit.toolType')}</Label>
               <div className="flex gap-2">
-                {TOOL_TYPES.map(({ value, label, icon: Icon }) => (
+                {TOOL_TYPES.map(({ value, labelKey, icon: Icon }) => (
                   <Button
                     key={value}
                     variant={tool === value ? 'default' : 'outline'}
@@ -184,7 +186,7 @@ export function EditPanel({ pdf }: EditPanelProps) {
                     onClick={() => setTool(value)}
                   >
                     <Icon className="mr-1 h-3 w-3" />
-                    {label}
+                    {t(labelKey)}
                   </Button>
                 ))}
               </div>
@@ -192,19 +194,19 @@ export function EditPanel({ pdf }: EditPanelProps) {
 
             {tool === 'text' && (
               <div className="space-y-2">
-                <Label htmlFor="ann-text">文字内容</Label>
+                <Label htmlFor="ann-text">{t('panel.edit.text')}</Label>
                 <Input
                   id="ann-text"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  placeholder="输入标注文字"
+                  placeholder={t('panel.edit.textPlaceholder')}
                 />
               </div>
             )}
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>颜色</Label>
+                <Label>{t('panel.edit.color')}</Label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
@@ -217,7 +219,7 @@ export function EditPanel({ pdf }: EditPanelProps) {
               </div>
               {tool === 'text' && (
                 <div className="space-y-2">
-                  <Label>字号</Label>
+                  <Label>{t('panel.edit.fontSize')}</Label>
                   <Input
                     type="number"
                     value={fontSize}
@@ -231,16 +233,16 @@ export function EditPanel({ pdf }: EditPanelProps) {
 
             <Button variant="outline" size="sm" onClick={addAnnotation} className="w-full">
               <Plus className="mr-1 h-3 w-3" />
-              添加标注到第 {pageIndex + 1} 页
+              {t('panel.edit.addAnnotationToPage', { page: pageIndex + 1 })}
             </Button>
 
             {annotations.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>标注列表 ({annotations.length})</Label>
+                  <Label>{t('panel.edit.annotationList', { count: annotations.length })}</Label>
                   <Button variant="ghost" size="sm" onClick={clearAnnotations}>
                     <Trash2 className="mr-1 h-3 w-3" />
-                    清空
+                    {t('panel.edit.clear')}
                   </Button>
                 </div>
                 <div className="max-h-32 overflow-y-auto space-y-1">
@@ -250,9 +252,9 @@ export function EditPanel({ pdf }: EditPanelProps) {
                       className="flex items-center justify-between text-sm p-2 bg-muted rounded"
                     >
                       <span>
-                        {TOOL_TYPES.find((t) => t.value === ann.type)?.label}
+                        {t(TOOL_TYPES.find((item) => item.value === ann.type)?.labelKey ?? '')}
                         {ann.text ? `: ${ann.text}` : ''}
-                        <span className="text-muted-foreground ml-2">第{ann.pageIndex + 1}页</span>
+                        <span className="text-muted-foreground ml-2">{t('panel.edit.page', { page: ann.pageIndex + 1 })}</span>
                       </span>
                       <Button
                         variant="ghost"
@@ -276,12 +278,12 @@ export function EditPanel({ pdf }: EditPanelProps) {
               {isProcessing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  保存中...
+                  {t('panel.edit.saving')}
                 </>
               ) : (
                 <>
                   <Edit3 className="mr-2 h-4 w-4" />
-                  保存编辑
+                  {t('panel.edit.save')}
                 </>
               )}
             </Button>
@@ -289,7 +291,7 @@ export function EditPanel({ pdf }: EditPanelProps) {
             {isProcessing && (
               <Button variant="outline" onClick={cancel}>
                 <XCircle className="mr-2 h-4 w-4" />
-                取消
+                {t('panel.edit.cancel')}
               </Button>
             )}
 

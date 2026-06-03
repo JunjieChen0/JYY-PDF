@@ -1,5 +1,6 @@
 import { memo, useCallback } from 'react'
 import { X, GripVertical } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { PageThumbnail } from '@/components/PageThumbnail'
@@ -14,6 +15,7 @@ interface FileListProps {
 }
 
 function FileListImpl({ files, onRemove, onReorder, getThumbnail }: FileListProps) {
+  const { t } = useTranslation()
   const handleDragStart = useCallback((index: number) => {
     return (e: React.DragEvent<HTMLDivElement>) => {
       e.dataTransfer.setData('text/plain', index.toString())
@@ -40,19 +42,19 @@ function FileListImpl({ files, onRemove, onReorder, getThumbnail }: FileListProp
   if (files.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground">
-        <p>暂无文件，请添加 PDF 文件</p>
+        <p>{t('app.fileList.empty')}, {t('app.fileList.emptyHint')}</p>
       </div>
     )
   }
 
   return (
     <ScrollArea className="flex-1">
-      <div role="list" aria-label="PDF文件列表">
+      <div role="list" aria-label="PDF">
         {files.map((file, index) => (
           <div
             key={file.id}
             role="listitem"
-            aria-label={`${file.name}，${formatFileSize(file.size)}，${file.pageCount}页`}
+            aria-label={`${file.name}, ${formatFileSize(file.size)}, ${file.pageCount}${t('app.fileList.pages')}`}
             draggable
             onDragStart={handleDragStart(index)}
             onDragOver={handleDragOver}
@@ -72,13 +74,13 @@ function FileListImpl({ files, onRemove, onReorder, getThumbnail }: FileListProp
             <div className="flex-1 min-w-0">
               <p className="font-medium truncate">{file.name}</p>
               <p className="text-sm text-muted-foreground">
-                {formatFileSize(file.size)} · {file.pageCount} 页
+                {formatFileSize(file.size)} · {file.pageCount} {t('app.fileList.pages')}
               </p>
             </div>
             <Button
               variant="ghost"
               size="icon"
-              aria-label={`移除 ${file.name}`}
+              aria-label={`${t('app.fileList.remove')} ${file.name}`}
               className="opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={() => onRemove(file.id)}
             >

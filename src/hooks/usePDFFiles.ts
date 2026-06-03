@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react'
 import { PDFDocument } from 'pdf-lib'
 import { toast } from 'sonner'
 import { logger } from '@/lib/logger'
+import { t } from '@/lib/i18n'
 import { clearThumbnailCacheForFile } from '@/lib/pdf-data-store'
 import {
   MAX_FILE_SIZE,
@@ -28,16 +29,16 @@ export function usePDFFiles() {
     for (const file of fileList) {
       try {
         if (file.size > MAX_FILE_SIZE) {
-          toast.error(`文件 ${file.name} 超过最大限制100MB，无法添加`)
+          toast.error(t('app.fileTooLarge', { name: file.name }))
           continue
         }
         if (runningTotal + file.size > MAX_TOTAL_SIZE) {
           const limitMB = Math.round(MAX_TOTAL_SIZE / (1024 * 1024))
-          toast.warning(`添加 ${file.name} 将超过总大小限制（${limitMB}MB），跳过`)
+          toast.warning(t('app.totalSizeExceeded', { name: file.name, limit: limitMB }))
           continue
         }
         if (candidates.length + filesRef.current.length >= MAX_FILE_COUNT) {
-          toast.warning(`已达到最大文件数量限制，跳过 ${file.name}`)
+          toast.warning(t('app.maxFileCountReached', { name: file.name }))
           continue
         }
 
@@ -46,15 +47,15 @@ export function usePDFFiles() {
         try {
           validatePdfHeader(data)
         } catch {
-          toast.error(`${file.name} 不是有效的PDF文档`)
+          toast.error(t('app.invalidPdfFile', { name: file.name }))
           continue
         }
         let pdfDoc
         try {
           pdfDoc = await PDFDocument.load(data, { ignoreEncryption: true })
         } catch (err) {
-          logger.error(`PDF解析失败: ${file.name}`, err)
-          toast.error(`文件 ${file.name} 加载失败，请检查是否为有效的PDF文件`)
+          logger.error(`PDF parse failed: ${file.name}`, err)
+          toast.error(t('app.fileLoadFailed', { name: file.name }))
           continue
         }
         const pageCount = pdfDoc.getPageCount()
@@ -65,8 +66,8 @@ export function usePDFFiles() {
         runningTotal += file.size
         candidates.push({ file, data, pageCount, headerHash })
       } catch (error) {
-        logger.error(`加载PDF文件失败: ${file.name}`, error)
-        toast.error(`文件 ${file.name} 加载失败，请检查是否为有效的PDF文件`)
+        logger.error(`Failed to load PDF file: ${file.name}`, error)
+        toast.error(t('app.fileLoadFailed', { name: file.name }))
       }
     }
 
@@ -78,7 +79,7 @@ export function usePDFFiles() {
       for (const cand of candidates) {
         const key = `${cand.file.name}|${cand.file.size}|${cand.headerHash}`
         if (existingKeys.has(key)) {
-          toast.warning(`文件 ${cand.file.name} 已存在，跳过`)
+          toast.warning(t('app.fileAlreadyExists', { name: cand.file.name }))
           continue
         }
         const id = crypto.randomUUID()
@@ -97,7 +98,7 @@ export function usePDFFiles() {
       const totalSize = next.reduce((sum, f) => sum + f.size, 0)
       if (totalSize > MEMORY_WARNING_THRESHOLD) {
         const sizeMB = Math.round(totalSize / (1024 * 1024))
-        toast.warning(`当前已加载 ${sizeMB}MB 文件数据，可能影响性能。建议减少文件数量或大小。`)
+        toast.warning(t('app.memoryWarning', { size: sizeMB }))
       }
       return next
     })
