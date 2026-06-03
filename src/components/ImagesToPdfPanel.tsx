@@ -6,10 +6,15 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { createCancellationToken, CancelledError } from '@/lib/cancellation'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useOperation } from '@/hooks/useOperation'
 import type { UsePDFReturn } from '@/hooks/usePDF'
-import type { CancellationToken } from '@/lib/cancellation'
 
 interface ImageItem {
   path: string
@@ -23,10 +28,11 @@ interface ImagesToPdfPanelProps {
 export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
   const [images, setImages] = useState<ImageItem[]>([])
   const [pageSize, setPageSize] = useState<'auto' | 'A4'>('auto')
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
-  const [cancelToken, setCancelToken] = useState<CancellationToken | null>(null)
+  const { isProcessing, progress, execute, cancel } = useOperation({
+    errorMessagePrefix: '转换失败',
+    onCancelMessage: '已取消转换',
+  })
   const rafRef = useRef<number | null>(null)
   const pendingDropIndex = useRef<number | null>(null)
 
@@ -49,13 +55,13 @@ export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
         })
       }
       if (newImages.length > 0) {
-        setImages(prev => [...prev, ...newImages])
+        setImages((prev) => [...prev, ...newImages])
       }
     }
   }
 
   const handleRemoveImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index))
+    setImages((prev) => prev.filter((_, i) => i !== index))
   }
 
   const handleDragStart = (index: number) => {
@@ -74,7 +80,7 @@ export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
       const targetIndex = pendingDropIndex.current
       if (targetIndex === null || dragIndex === null || dragIndex === targetIndex) return
 
-      setImages(prev => {
+      setImages((prev) => {
         const newImages = [...prev]
         const [removed] = newImages.splice(dragIndex, 1)
         newImages.splice(targetIndex, 0, removed)
@@ -97,32 +103,16 @@ export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
   const handleConvert = async () => {
     if (images.length === 0) return
 
-    const token = createCancellationToken()
-    setCancelToken(token)
-    setIsProcessing(true)
-    setProgress(0)
+    const result = await execute(async (onProgress, token) => {
+      const imagePaths = images.map((img) => img.path)
+      return pdf.imagesToPdf(imagePaths, { pageSize }, onProgress, token)
+    })
+    // 注：imagesToPdf 操作的源是图片路径而非 PDF 文件 ID，不参与文件互斥锁
+    void undefined
 
-    try {
-      const imagePaths = images.map(img => img.path)
-      const outputPath = await pdf.imagesToPdf(imagePaths, { pageSize }, p => setProgress(p), token)
-      if (outputPath) {
-        toast.success(`转换完成！PDF 已保存到：${outputPath}`)
-      }
-    } catch (error) {
-      if (error instanceof CancelledError) {
-        toast.info('操作已取消')
-      } else {
-        toast.error(`转换失败：${error instanceof Error ? error.message : String(error)}`)
-      }
-    } finally {
-      setIsProcessing(false)
-      setProgress(0)
-      setCancelToken(null)
+    if (result) {
+      toast.success(`转换完成！PDF 已保存到：${result}`)
     }
-  }
-
-  const handleCancel = () => {
-    cancelToken?.cancel()
   }
 
   return (
@@ -132,9 +122,7 @@ export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
           <ImageIcon className="h-5 w-5" />
           图片转 PDF
         </CardTitle>
-        <CardDescription>
-          将多张图片合并为一个 PDF 文件
-        </CardDescription>
+        <CardDescription>将多张图片合并为一个 PDF 文件</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -192,9 +180,7 @@ export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
           )}
 
           {images.length > 0 && (
-            <p className="text-xs text-muted-foreground text-right">
-              共 {images.length} 张图片
-            </p>
+            <p className="text-xs text-muted-foreground text-right">共 {images.length} 张图片</p>
           )}
         </div>
 
@@ -206,7 +192,7 @@ export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
           >
             <div className="space-y-2">
               <Label>页面尺寸</Label>
-              <Select value={pageSize} onValueChange={v => setPageSize(v as 'auto' | 'A4')}>
+              <Select value={pageSize} onValueChange={(v) => setPageSize(v as 'auto' | 'A4')}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -229,18 +215,12 @@ export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
                 className="space-y-2"
               >
                 <Progress value={progress} />
-                <p className="text-sm text-muted-foreground text-center">
-                  正在转换... {progress}%
-                </p>
+                <p className="text-sm text-muted-foreground text-center">正在转换... {progress}%</p>
               </motion.div>
             )}
 
             <div className="flex gap-2">
-              <Button
-                onClick={handleConvert}
-                disabled={isProcessing}
-                className="flex-1"
-              >
+              <Button onClick={handleConvert} disabled={isProcessing} className="flex-1">
                 {isProcessing ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -254,7 +234,7 @@ export function ImagesToPdfPanel({ pdf }: ImagesToPdfPanelProps) {
                 )}
               </Button>
               {isProcessing && (
-                <Button variant="outline" onClick={handleCancel}>
+                <Button variant="outline" onClick={cancel}>
                   <XCircle className="mr-2 h-4 w-4" />
                   取消
                 </Button>

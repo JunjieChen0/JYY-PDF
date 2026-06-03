@@ -1,3 +1,4 @@
+import { memo, useCallback } from 'react'
 import { X, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -12,26 +13,29 @@ interface FileListProps {
   getThumbnail?: (fileId: string, pageIndex: number, maxWidth?: number) => Promise<string | null>
 }
 
-export function FileList({ files, onRemove, onReorder, getThumbnail }: FileListProps) {
-  const handleDragStart = (index: number) => {
+function FileListImpl({ files, onRemove, onReorder, getThumbnail }: FileListProps) {
+  const handleDragStart = useCallback((index: number) => {
     return (e: React.DragEvent<HTMLDivElement>) => {
       e.dataTransfer.setData('text/plain', index.toString())
     }
-  }
+  }, [])
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
-  }
+  }, [])
 
-  const handleDrop = (toIndex: number) => {
-    return (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault()
-      const fromIndex = parseInt(e.dataTransfer.getData('text/plain'))
-      if (fromIndex !== toIndex) {
-        onReorder(fromIndex, toIndex)
+  const handleDrop = useCallback(
+    (toIndex: number) => {
+      return (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        const fromIndex = parseInt(e.dataTransfer.getData('text/plain'))
+        if (fromIndex !== toIndex) {
+          onReorder(fromIndex, toIndex)
+        }
       }
-    }
-  }
+    },
+    [onReorder],
+  )
 
   if (files.length === 0) {
     return (
@@ -86,3 +90,9 @@ export function FileList({ files, onRemove, onReorder, getThumbnail }: FileListP
     </ScrollArea>
   )
 }
+
+/**
+ * props 等价（files 同引用 + 三个 callback 同引用）时不重渲染。
+ * 配合 usePDF 的 useMemo 返回稳定引用，切换 Tab 时不会重渲染。
+ */
+export const FileList = memo(FileListImpl)

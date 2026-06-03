@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { usePDFFiles } from './usePDFFiles'
 import { usePDFMerge } from './usePDFMerge'
 import { usePDFPages } from './usePDFPages'
@@ -11,7 +12,14 @@ import { usePDFAnnotation } from './usePDFAnnotation'
 import { usePDFOCR } from './usePDFOCR'
 import { usePDFEncrypt } from './usePDFEncrypt'
 
-export type { PDFFile, ProgressCallback, WatermarkPosition, PageNumberPosition, Annotation, EncryptRestrictions } from './types'
+export type {
+  PDFFile,
+  ProgressCallback,
+  WatermarkPosition,
+  PageNumberPosition,
+  Annotation,
+  EncryptRestrictions,
+} from './types'
 export type { CancellationToken } from '@/lib/cancellation'
 
 export interface UsePDFReturn {
@@ -54,29 +62,56 @@ export function usePDF(): UsePDFReturn {
   const { ocrPDF } = usePDFOCR(files)
   const { encryptFile, decryptFile } = usePDFEncrypt(files)
 
-  return {
-    files,
-    addFiles,
-    removeFile,
-    reorderFiles,
-    mergeFiles,
-    splitFile,
-    rotatePages,
-    deletePages,
-    extractPages,
-    compressFile,
-    addWatermark,
-    addPageNumbers,
-    convertToImages,
-    convertToText,
-    imagesToPdf,
-    getPageThumbnail,
-    addSignature,
-    addAnnotation,
-    ocrPDF,
-    pdfToWord,
-    wordToPdf,
-    encryptFile,
-    decryptFile,
-  }
+  return useMemo<UsePDFReturn>(
+    () => ({
+      files,
+      addFiles,
+      removeFile,
+      reorderFiles,
+      mergeFiles,
+      splitFile,
+      rotatePages,
+      deletePages,
+      extractPages,
+      compressFile,
+      addWatermark,
+      addPageNumbers,
+      convertToImages,
+      convertToText,
+      imagesToPdf,
+      getPageThumbnail,
+      addSignature,
+      addAnnotation,
+      ocrPDF,
+      pdfToWord,
+      wordToPdf,
+      encryptFile,
+      decryptFile,
+    }),
+    [
+      files,
+      addFiles,
+      removeFile,
+      reorderFiles,
+      mergeFiles,
+      splitFile,
+      rotatePages,
+      deletePages,
+      extractPages,
+      compressFile,
+      addWatermark,
+      addPageNumbers,
+      convertToImages,
+      convertToText,
+      imagesToPdf,
+      getPageThumbnail,
+      addSignature,
+      addAnnotation,
+      ocrPDF,
+      pdfToWord,
+      wordToPdf,
+      encryptFile,
+      decryptFile,
+    ],
+  )
 }

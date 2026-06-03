@@ -1,39 +1,54 @@
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { PDFDocument } from 'pdf-lib'
 import type { PDFFile, ProgressCallback } from './types'
 import type { CancellationToken } from '@/lib/cancellation'
-import { checkResult, validatePdfHeader } from '@/lib/pdf-helpers'
+import { checkResult, validatePdfHeader, getRequiredPdfData, yieldToMain } from '@/lib/pdf-helpers'
+import * as pdfDataStore from '@/lib/pdf-data-store'
 
 export function usePDFMerge(files: PDFFile[]) {
-  const mergeFiles = useCallback(async (onProgress?: ProgressCallback, token?: CancellationToken) => {
-    if (files.length < 2) return null
+  const filesRef = useRef(files)
+  filesRef.current = files
 
-    const result = await window.electronAPI.saveFile({
-      defaultPath: 'merged.pdf',
-    })
+  const mergeFiles = useCallback(
+    async (onProgress?: ProgressCallback, token?: CancellationToken) => {
+      const currentFiles = filesRef.current
+      if (currentFiles.length < 2) return null
 
-    if (result.canceled || !result.filePath) return null
+      const result = await window.electronAPI.saveFile({
+        defaultPath: 'merged.pdf',
+      })
 
-    const mergedPdf = await PDFDocument.create()
+      if (result.canceled || !result.filePath) return null
 
-    for (let i = 0; i < files.length; i++) {
+      const mergedPdf = await PDFDocument.create()
+
+      for (let i = 0; i < currentFiles.length; i++) {
+        token?.throwIfCancelled()
+        await yieldToMain()
+        const file = currentFiles[i]
+        const fileData = getRequiredPdfData(file.id, pdfDataStore)
+        validatePdfHeader(fileData)
+        let pdfDoc: PDFDocument | null = null
+        try {
+          pdfDoc = await PDFDocument.load(new Uint8Array(fileData), { ignoreEncryption: true })
+          const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices())
+          copiedPages.forEach((page) => mergedPdf.addPage(page))
+
+          onProgress?.(Math.round(((i + 1) / currentFiles.length) * 100))
+        } finally {
+          pdfDoc = null
+        }
+      }
+
       token?.throwIfCancelled()
-      const file = files[i]
-      validatePdfHeader(file.data)
-      const pdfDoc = await PDFDocument.load(new Uint8Array(file.data), { ignoreEncryption: true })
-      const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices())
-      copiedPages.forEach(page => mergedPdf.addPage(page))
+      const mergedBytes = await mergedPdf.save()
+      const writeResult = await window.electronAPI.writeFile(result.filePath, mergedBytes)
+      checkResult(writeResult, '写入文件失败：')
 
-      onProgress?.(Math.round(((i + 1) / files.length) * 100))
-    }
-
-    token?.throwIfCancelled()
-    const mergedBytes = await mergedPdf.save()
-    const writeResult = await window.electronAPI.writeFile(result.filePath, mergedBytes)
-    checkResult(writeResult, '写入文件失败：')
-
-    return result.filePath
-  }, [files])
+      return result.filePath
+    },
+    [],
+  )
 
   return { mergeFiles }
 }

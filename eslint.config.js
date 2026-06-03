@@ -23,6 +23,28 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['dist/', 'dist-electron/', 'node_modules/', 'electron/'],
+    files: ['electron/**/*.cjs', 'electron/lib/**/*.js', 'electron/__tests__/**/*.ts'],
+    languageOptions: {
+      globals: {
+        require: 'readonly',
+        module: 'readonly',
+        __dirname: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+      },
+    },
+    rules: {
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-require-imports': 'off',
+      'no-empty': ['error', { allowEmptyCatch: true }],
+    },
+  },
+  {
+    ignores: ['dist/', 'dist-electron/', 'node_modules/'],
   },
 )

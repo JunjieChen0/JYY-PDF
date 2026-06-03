@@ -8,7 +8,13 @@ import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useOperation } from '@/hooks/useOperation'
 import { useFileSelection } from '@/hooks/useFileSelection'
 import type { UsePDFReturn } from '@/hooks/usePDF'
@@ -18,12 +24,22 @@ interface WatermarkPanelProps {
 }
 
 export function WatermarkPanel({ pdf }: WatermarkPanelProps) {
-  const { selectedFiles, selectedCount, isAllSelected, toggleFile, toggleAll, isSelected } = useFileSelection(pdf.files)
+  const { selectedFiles, selectedCount, isAllSelected, toggleFile, toggleAll, isSelected } =
+    useFileSelection(pdf.files)
   const [watermarkType, setWatermarkType] = useState<'text' | 'image'>('text')
   const [textContent, setTextContent] = useState('水印')
   const [imagePath, setImagePath] = useState<string | null>(null)
   const [imageName, setImageName] = useState('')
-  const [position, setPosition] = useState<'top-left' | 'top-center' | 'top-right' | 'center' | 'bottom-left' | 'bottom-center' | 'bottom-right' | 'tile'>('tile')
+  const [position, setPosition] = useState<
+    | 'top-left'
+    | 'top-center'
+    | 'top-right'
+    | 'center'
+    | 'bottom-left'
+    | 'bottom-center'
+    | 'bottom-right'
+    | 'tile'
+  >('tile')
   const [opacity, setOpacity] = useState(30)
   const [fontSize, setFontSize] = useState(60)
   const [rotate, setRotate] = useState(-45)
@@ -37,9 +53,7 @@ export function WatermarkPanel({ pdf }: WatermarkPanelProps) {
   const handleSelectImage = async () => {
     const result = await window.electronAPI.openFile({
       defaultPath: '',
-      filters: [
-        { name: '图片文件', extensions: ['png', 'jpg', 'jpeg'] },
-      ],
+      filters: [{ name: '图片文件', extensions: ['png', 'jpg', 'jpeg'] }],
     })
     if (!result.canceled && result.filePaths.length > 0) {
       const filePath = result.filePaths[0]
@@ -63,31 +77,39 @@ export function WatermarkPanel({ pdf }: WatermarkPanelProps) {
 
     const fileIds = Array.from(selectedFiles)
 
-    const result = await execute(async (onProgress, token) => {
-      let successCount = 0
-      for (let i = 0; i < fileIds.length; i++) {
-        token.throwIfCancelled()
-        setCurrentFileIndex(i)
+    const result = await execute(
+      async (onProgress, token) => {
+        let successCount = 0
+        for (let i = 0; i < fileIds.length; i++) {
+          token.throwIfCancelled()
+          setCurrentFileIndex(i)
 
-        const fileProgress = (p: number) => {
-          const overall = Math.round(((i / fileIds.length) * 100) + (p / fileIds.length))
-          onProgress(overall)
+          const fileProgress = (p: number) => {
+            const overall = Math.round((i / fileIds.length) * 100 + p / fileIds.length)
+            onProgress(overall)
+          }
+
+          const outputPath = await pdf.addWatermark(
+            fileIds[i],
+            {
+              type: watermarkType,
+              content: textContent,
+              imagePath: imagePath || undefined,
+              position,
+              opacity: opacity / 100,
+              fontSize,
+              rotate,
+              color,
+            },
+            fileProgress,
+            token,
+          )
+          if (outputPath) successCount++
         }
-
-        const outputPath = await pdf.addWatermark(fileIds[i], {
-          type: watermarkType,
-          content: textContent,
-          imagePath: imagePath || undefined,
-          position,
-          opacity: opacity / 100,
-          fontSize,
-          rotate,
-          color,
-        }, fileProgress, token)
-        if (outputPath) successCount++
-      }
-      return successCount
-    })
+        return successCount
+      },
+      { lockFileIds: fileIds },
+    )
 
     setCurrentFileIndex(0)
 
@@ -103,9 +125,7 @@ export function WatermarkPanel({ pdf }: WatermarkPanelProps) {
           <Type className="h-5 w-5" />
           添加水印
         </CardTitle>
-        <CardDescription>
-          给PDF添加文字或图片水印
-        </CardDescription>
+        <CardDescription>给PDF添加文字或图片水印</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {pdf.files.length === 0 ? (
@@ -115,12 +135,7 @@ export function WatermarkPanel({ pdf }: WatermarkPanelProps) {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium">选择文件</label>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleAll}
-                  className="h-7 text-xs"
-                >
+                <Button variant="ghost" size="sm" onClick={toggleAll} className="h-7 text-xs">
                   {isAllSelected ? (
                     <>
                       <CheckSquare className="mr-1 h-3.5 w-3.5" />
@@ -135,7 +150,7 @@ export function WatermarkPanel({ pdf }: WatermarkPanelProps) {
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {pdf.files.map(file => (
+                {pdf.files.map((file) => (
                   <Badge
                     key={file.id}
                     variant={isSelected(file.id) ? 'default' : 'outline'}
@@ -147,9 +162,7 @@ export function WatermarkPanel({ pdf }: WatermarkPanelProps) {
                 ))}
               </div>
               {selectedCount > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  已选择 {selectedCount} 个文件
-                </p>
+                <p className="text-xs text-muted-foreground">已选择 {selectedCount} 个文件</p>
               )}
             </div>
 
@@ -186,7 +199,7 @@ export function WatermarkPanel({ pdf }: WatermarkPanelProps) {
                   <Input
                     id="textContent"
                     value={textContent}
-                    onChange={e => setTextContent(e.target.value)}
+                    onChange={(e) => setTextContent(e.target.value)}
                     placeholder="请输入水印文字"
                   />
                 </div>
@@ -227,7 +240,7 @@ export function WatermarkPanel({ pdf }: WatermarkPanelProps) {
 
               <div className="space-y-2">
                 <Label>位置</Label>
-                <Select value={position} onValueChange={v => setPosition(v as typeof position)}>
+                <Select value={position} onValueChange={(v) => setPosition(v as typeof position)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -251,7 +264,7 @@ export function WatermarkPanel({ pdf }: WatermarkPanelProps) {
                   min="10"
                   max="100"
                   value={opacity}
-                  onChange={e => setOpacity(Number(e.target.value))}
+                  onChange={(e) => setOpacity(Number(e.target.value))}
                   className="w-full"
                 />
               </div>
@@ -265,7 +278,7 @@ export function WatermarkPanel({ pdf }: WatermarkPanelProps) {
                       min="20"
                       max="120"
                       value={fontSize}
-                      onChange={e => setFontSize(Number(e.target.value))}
+                      onChange={(e) => setFontSize(Number(e.target.value))}
                       className="w-full"
                     />
                   </div>
@@ -276,13 +289,13 @@ export function WatermarkPanel({ pdf }: WatermarkPanelProps) {
                       <input
                         type="color"
                         value={color}
-                        onChange={e => setColor(e.target.value)}
+                        onChange={(e) => setColor(e.target.value)}
                         className="w-10 h-10 rounded cursor-pointer"
                       />
                       <Input
                         id="color"
                         value={color}
-                        onChange={e => setColor(e.target.value)}
+                        onChange={(e) => setColor(e.target.value)}
                         className="flex-1"
                       />
                     </div>
@@ -297,7 +310,7 @@ export function WatermarkPanel({ pdf }: WatermarkPanelProps) {
                   min="-180"
                   max="180"
                   value={rotate}
-                  onChange={e => setRotate(Number(e.target.value))}
+                  onChange={(e) => setRotate(Number(e.target.value))}
                   className="w-full"
                 />
               </div>
@@ -305,7 +318,9 @@ export function WatermarkPanel({ pdf }: WatermarkPanelProps) {
               <div className="flex gap-2">
                 <Button
                   onClick={handleAddWatermark}
-                  disabled={selectedCount === 0 || isProcessing || (watermarkType === 'image' && !imagePath)}
+                  disabled={
+                    selectedCount === 0 || isProcessing || (watermarkType === 'image' && !imagePath)
+                  }
                   className="flex-1"
                 >
                   {isProcessing ? (
@@ -337,7 +352,9 @@ export function WatermarkPanel({ pdf }: WatermarkPanelProps) {
               >
                 <Progress value={progress} />
                 <p className="text-sm text-muted-foreground text-center">
-                  正在添加水印... {selectedCount > 1 ? `(${currentFileIndex + 1}/${selectedCount})` : ''} {progress}%
+                  正在添加水印...{' '}
+                  {selectedCount > 1 ? `(${currentFileIndex + 1}/${selectedCount})` : ''} {progress}
+                  %
                 </p>
               </motion.div>
             )}

@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fileExists: (filePath) => ipcRenderer.invoke('fs:exists', filePath),
   fileStat: (filePath) => ipcRenderer.invoke('fs:stat', filePath),
   convertWordToPdf: (filePath) => ipcRenderer.invoke('convert:wordToPdf', filePath),
+  convertWordToPdfData: (data) => ipcRenderer.invoke('convert:wordToPdfData', data),
   encryptPdf: (options) => ipcRenderer.invoke('encrypt:encryptPdf', options),
   decryptPdf: (options) => ipcRenderer.invoke('encrypt:decryptPdf', options),
   readSystemFont: (fontName) => ipcRenderer.invoke('fs:readSystemFont', fontName),

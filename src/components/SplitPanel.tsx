@@ -20,14 +20,17 @@ export function SplitPanel({ pdf }: SplitPanelProps) {
     errorMessagePrefix: '分割失败',
   })
 
-  const selectedFileData = pdf.files.find(f => f.id === selectedFile)
+  const selectedFileData = pdf.files.find((f) => f.id === selectedFile)
 
   const handleSplit = async () => {
     if (!selectedFile || !rangeStr) return
 
-    const results = await execute(async (onProgress, token) => {
-      return pdf.splitFile(selectedFile, rangeStr, onProgress, token)
-    })
+    const results = await execute(
+      async (onProgress, token) => {
+        return pdf.splitFile(selectedFile, rangeStr, onProgress, token)
+      },
+      { lockFileIds: [selectedFile] },
+    )
 
     if (results) {
       toast.success(`分割完成！生成 ${results.length} 个文件`)
@@ -41,9 +44,7 @@ export function SplitPanel({ pdf }: SplitPanelProps) {
           <Scissors className="h-5 w-5" />
           分割 PDF
         </CardTitle>
-        <CardDescription>
-          将 PDF 文件按页码范围分割为多个文件。
-        </CardDescription>
+        <CardDescription>将 PDF 文件按页码范围分割为多个文件。</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {pdf.files.length === 0 ? (
@@ -53,7 +54,7 @@ export function SplitPanel({ pdf }: SplitPanelProps) {
             <div className="space-y-2">
               <label className="text-sm font-medium">选择文件</label>
               <div className="flex flex-wrap gap-2">
-                {pdf.files.map(file => (
+                {pdf.files.map((file) => (
                   <Badge
                     key={file.id}
                     variant={selectedFile === file.id ? 'default' : 'outline'}
@@ -100,9 +101,7 @@ export function SplitPanel({ pdf }: SplitPanelProps) {
                 className="space-y-2"
               >
                 <Progress value={progress} />
-                <p className="text-sm text-muted-foreground text-center">
-                  正在分割... {progress}%
-                </p>
+                <p className="text-sm text-muted-foreground text-center">正在分割... {progress}%</p>
               </motion.div>
             )}
 

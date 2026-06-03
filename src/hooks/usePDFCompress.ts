@@ -1,61 +1,80 @@
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { PDFDocument } from 'pdf-lib'
 import type { PDFFile, ProgressCallback } from './types'
 import type { CancellationToken } from '@/lib/cancellation'
-import { checkResult, validatePdfHeader } from '@/lib/pdf-helpers'
+import { checkResult, validatePdfHeader, yieldToMain, getRequiredPdfData } from '@/lib/pdf-helpers'
+import * as pdfDataStore from '@/lib/pdf-data-store'
 import { COMPRESSION_OBJECTS_PER_TICK } from '@/lib/constants'
 
 export function usePDFCompress(files: PDFFile[]) {
-  const compressFile = useCallback(async (
-    fileId: string,
-    level: 'high' | 'medium' | 'low',
-    onProgress?: ProgressCallback,
-    token?: CancellationToken,
-    options?: { preserveMetadata?: boolean }
-  ) => {
-    const file = files.find(f => f.id === fileId)
-    if (!file) return null
-    validatePdfHeader(file.data)
+  const filesRef = useRef(files)
+  filesRef.current = files
 
-    const pdfDoc = await PDFDocument.load(new Uint8Array(file.data), { ignoreEncryption: true, updateMetadata: true })
+  const compressFile = useCallback(
+    async (
+      fileId: string,
+      level: 'high' | 'medium' | 'low',
+      onProgress?: ProgressCallback,
+      token?: CancellationToken,
+      options?: { preserveMetadata?: boolean },
+    ) => {
+      const file = filesRef.current.find((f) => f.id === fileId)
+      if (!file) return null
+      const fileData = getRequiredPdfData(file.id, pdfDataStore)
+      validatePdfHeader(fileData)
 
-    onProgress?.(20)
+      let pdfDoc: PDFDocument | null = null
+      try {
+        pdfDoc = await PDFDocument.load(new Uint8Array(fileData), {
+          ignoreEncryption: true,
+          updateMetadata: true,
+        })
 
-    if (!options?.preserveMetadata) {
-      pdfDoc.setTitle('')
-      pdfDoc.setAuthor('')
-      pdfDoc.setSubject('')
-      pdfDoc.setKeywords([])
-      pdfDoc.setProducer('')
-      pdfDoc.setCreator('')
-      pdfDoc.setCreationDate(new Date())
-      pdfDoc.setModificationDate(new Date())
-    }
+        onProgress?.(20)
+        await yieldToMain()
 
-    const result = await window.electronAPI.saveFile({
-      defaultPath: `${file.name.replace(/\.pdf$/i, '')}_compressed.pdf`,
-    })
+        if (!options?.preserveMetadata) {
+          pdfDoc.setTitle('')
+          pdfDoc.setAuthor('')
+          pdfDoc.setSubject('')
+          pdfDoc.setKeywords([])
+          pdfDoc.setProducer('')
+          pdfDoc.setCreator('')
+          pdfDoc.setCreationDate(new Date())
+          pdfDoc.setModificationDate(new Date())
+        }
 
-    if (result.canceled || !result.filePath) return null
+        const result = await window.electronAPI.saveFile({
+          defaultPath: `${file.name.replace(/\.pdf$/i, '')}_compressed.pdf`,
+        })
 
-    const saveOptions: { useObjectStreams: boolean; objectsPerTick?: number } = {
-      useObjectStreams: true,
-      objectsPerTick: COMPRESSION_OBJECTS_PER_TICK[level],
-    }
+        if (result.canceled || !result.filePath) return null
 
-    onProgress?.(60)
+        const saveOptions: { useObjectStreams: boolean; objectsPerTick?: number } = {
+          useObjectStreams: true,
+          objectsPerTick: COMPRESSION_OBJECTS_PER_TICK[level],
+        }
 
-    token?.throwIfCancelled()
-    const bytes = await pdfDoc.save(saveOptions)
+        onProgress?.(60)
+        await yieldToMain()
 
-    onProgress?.(80)
+        token?.throwIfCancelled()
+        const bytes = await pdfDoc.save(saveOptions)
 
-    const writeResult = await window.electronAPI.writeFile(result.filePath, bytes)
-    checkResult(writeResult, '写入文件失败：')
+        onProgress?.(80)
+        await yieldToMain()
 
-    onProgress?.(100)
-    return result.filePath
-  }, [files])
+        const writeResult = await window.electronAPI.writeFile(result.filePath, bytes)
+        checkResult(writeResult, '写入文件失败：')
+
+        onProgress?.(100)
+        return result.filePath
+      } finally {
+        pdfDoc = null
+      }
+    },
+    [],
+  )
 
   return { compressFile }
 }

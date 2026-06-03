@@ -17,7 +17,8 @@ interface CompressPanelProps {
 }
 
 export function CompressPanel({ pdf }: CompressPanelProps) {
-  const { selectedFiles, selectedCount, isAllSelected, toggleFile, toggleAll, isSelected } = useFileSelection(pdf.files)
+  const { selectedFiles, selectedCount, isAllSelected, toggleFile, toggleAll, isSelected } =
+    useFileSelection(pdf.files)
   const [compressLevel, setCompressLevel] = useState<'high' | 'medium' | 'low'>('medium')
   const [preserveMetadata, setPreserveMetadata] = useState(true)
   const [currentFileIndex, setCurrentFileIndex] = useState(0)
@@ -26,9 +27,14 @@ export function CompressPanel({ pdf }: CompressPanelProps) {
   })
 
   const levelOptions = [
-    { value: 'low', label: '快速', desc: '保存速度快，界面响应好', sizeReduction: '约 20%' },
-    { value: 'medium', label: '均衡', desc: '平衡保存速度与响应性', sizeReduction: '约 40%' },
-    { value: 'high', label: '稳定', desc: '保存最稳定，界面可能短暂卡顿', sizeReduction: '约 60%' },
+    {
+      value: 'low',
+      label: '速度优先',
+      desc: '保存速度快，保存时界面可能短暂卡顿',
+      speedHint: '快',
+    },
+    { value: 'medium', label: '均衡', desc: '平衡保存速度与界面响应性', speedHint: '中' },
+    { value: 'high', label: '稳定优先', desc: '保存时界面响应好，保存时间较长', speedHint: '稳' },
   ]
 
   const handleCompress = async () => {
@@ -37,21 +43,30 @@ export function CompressPanel({ pdf }: CompressPanelProps) {
     const fileIds = Array.from(selectedFiles)
     let successCount = 0
 
-    const result = await execute(async (onProgress, token) => {
-      for (let i = 0; i < fileIds.length; i++) {
-        token.throwIfCancelled()
-        setCurrentFileIndex(i)
+    const result = await execute(
+      async (onProgress, token) => {
+        for (let i = 0; i < fileIds.length; i++) {
+          token.throwIfCancelled()
+          setCurrentFileIndex(i)
 
-        const fileProgress = (p: number) => {
-          const overall = Math.round(((i / fileIds.length) * 100) + (p / fileIds.length))
-          onProgress(overall)
+          const fileProgress = (p: number) => {
+            const overall = Math.round((i / fileIds.length) * 100 + p / fileIds.length)
+            onProgress(overall)
+          }
+
+          const outputPath = await pdf.compressFile(
+            fileIds[i],
+            compressLevel,
+            fileProgress,
+            token,
+            { preserveMetadata },
+          )
+          if (outputPath) successCount++
         }
-
-        const outputPath = await pdf.compressFile(fileIds[i], compressLevel, fileProgress, token, { preserveMetadata })
-        if (outputPath) successCount++
-      }
-      return successCount
-    })
+        return successCount
+      },
+      { lockFileIds: fileIds },
+    )
 
     setCurrentFileIndex(0)
 
@@ -67,9 +82,7 @@ export function CompressPanel({ pdf }: CompressPanelProps) {
           <FileArchive className="h-5 w-5" />
           压缩PDF
         </CardTitle>
-        <CardDescription>
-          减小PDF文件体积，支持三种压缩等级
-        </CardDescription>
+        <CardDescription>减小PDF文件体积，支持三种压缩等级</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {pdf.files.length === 0 ? (
@@ -79,12 +92,7 @@ export function CompressPanel({ pdf }: CompressPanelProps) {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium">选择文件</label>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleAll}
-                  className="h-7 text-xs"
-                >
+                <Button variant="ghost" size="sm" onClick={toggleAll} className="h-7 text-xs">
                   {isAllSelected ? (
                     <>
                       <CheckSquare className="mr-1 h-3.5 w-3.5" />
@@ -99,7 +107,7 @@ export function CompressPanel({ pdf }: CompressPanelProps) {
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {pdf.files.map(file => (
+                {pdf.files.map((file) => (
                   <Badge
                     key={file.id}
                     variant={isSelected(file.id) ? 'default' : 'outline'}
@@ -111,9 +119,7 @@ export function CompressPanel({ pdf }: CompressPanelProps) {
                 ))}
               </div>
               {selectedCount > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  已选择 {selectedCount} 个文件
-                </p>
+                <p className="text-xs text-muted-foreground">已选择 {selectedCount} 个文件</p>
               )}
             </div>
 
@@ -125,7 +131,7 @@ export function CompressPanel({ pdf }: CompressPanelProps) {
               <div className="space-y-2">
                 <label className="text-sm font-medium">压缩等级</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {levelOptions.map(option => (
+                  {levelOptions.map((option) => (
                     <Button
                       key={option.value}
                       variant={compressLevel === option.value ? 'default' : 'outline'}
@@ -134,7 +140,9 @@ export function CompressPanel({ pdf }: CompressPanelProps) {
                     >
                       <div className="font-medium">{option.label}</div>
                       <div className="text-xs opacity-80 font-normal">{option.desc}</div>
-                      <div className="text-xs mt-1 text-green-400 font-normal">预计减少{option.sizeReduction}</div>
+                      <div className="text-xs mt-1 text-muted-foreground font-normal">
+                        响应速度：{option.speedHint}
+                      </div>
                     </Button>
                   ))}
                 </div>
@@ -145,7 +153,9 @@ export function CompressPanel({ pdf }: CompressPanelProps) {
                   checked={preserveMetadata}
                   onCheckedChange={setPreserveMetadata}
                 />
-                <Label htmlFor="preserveMetadata" className="text-sm">保留文档元数据（标题、作者等）</Label>
+                <Label htmlFor="preserveMetadata" className="text-sm">
+                  保留文档元数据（标题、作者等）
+                </Label>
               </div>
             </motion.div>
 
@@ -157,7 +167,9 @@ export function CompressPanel({ pdf }: CompressPanelProps) {
               >
                 <Progress value={progress} />
                 <p className="text-sm text-muted-foreground text-center">
-                  正在压缩... {selectedCount > 1 ? `(${currentFileIndex + 1}/${selectedCount})` : ''} {progress}%
+                  正在压缩...{' '}
+                  {selectedCount > 1 ? `(${currentFileIndex + 1}/${selectedCount})` : ''} {progress}
+                  %
                 </p>
               </motion.div>
             )}

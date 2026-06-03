@@ -1,40 +1,25 @@
 const { app, BrowserWindow, ipcMain, dialog, session } = require('electron')
 const path = require('path')
 const fs = require('fs')
-const { execFile } = require('child_process')
+const { spawn } = require('child_process')
+const crypto = require('crypto')
+const dompurify = require('isomorphic-dompurify')
+const pathSafety = require('./lib/path-safety')
 
-const allowedPaths = new Set()
-const allowedOutputDirs = new Map()
+const pathRegistry = pathSafety.createPathRegistry()
+
+const MAX_WORD_INPUT_SIZE = 50 * 1024 * 1024
+const MAX_WRITE_SIZE = 500 * 1024 * 1024
+const MAX_READ_SIZE = 200 * 1024 * 1024
 
 function getUserDocsPath() {
   return app.getPath('documents')
 }
 
-function isPathSafe(filePath) {
-  if (!filePath || typeof filePath !== 'string') return false
-  if (filePath.includes('\0')) return false
-  if (filePath.includes('..') || filePath.match(/%2e|%252e/i)) return false
-  const normalized = path.normalize(filePath)
-  if (normalized.includes('..') || normalized.includes('\0')) return false
-  return true
-}
-
-const ALLOWED_WRITE_EXTS = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.txt', '.docx', '.doc'])
-const ALLOWED_READ_EXTS = new Set(['.pdf', '.png', '.jpg', '.jpeg'])
-
-function isPathAllowed(filePath, mode) {
-  const normalized = path.normalize(filePath)
-  if (allowedPaths.has(normalized)) return true
-  const ext = path.extname(normalized).toLowerCase()
-  const basename = path.basename(normalized, ext)
-  const dir = path.dirname(normalized)
-  const dirInfo = allowedOutputDirs.get(dir)
-  if (!dirInfo) return false
-  if (mode === 'write' && !ALLOWED_WRITE_EXTS.has(ext)) return false
-  if (mode === 'read' && !ALLOWED_READ_EXTS.has(ext)) return false
-  if (!basename.startsWith(dirInfo.prefix)) return false
-  return true
-}
+const isPathSafe = pathSafety.isPathSafe
+const isPathAllowed = (filePath, mode) => pathSafety.isPathAllowed(filePath, mode, pathRegistry)
+const sanitizeDefaultPath = pathSafety.sanitizeDefaultPath
+const sanitizeError = pathSafety.sanitizeError
 
 // 检查文件是否是符号链接
 async function isSymlink(filePath) {
@@ -47,105 +32,149 @@ async function isSymlink(filePath) {
 }
 
 const ALLOWED_HTML_TAGS = new Set([
-  'p', 'br', 'hr', 'strong', 'em', 'b', 'i', 'u', 's', 'sub', 'sup',
-  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-  'ul', 'ol', 'li', 'dl', 'dt', 'dd',
-  'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'caption', 'colgroup', 'col',
-  'img', 'a', 'span', 'div', 'blockquote', 'pre', 'code', 'figure', 'figcaption',
-  'section', 'article', 'header', 'footer', 'main', 'aside', 'nav',
+  'p',
+  'br',
+  'hr',
+  'strong',
+  'em',
+  'b',
+  'i',
+  'u',
+  's',
+  'sub',
+  'sup',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'ul',
+  'ol',
+  'li',
+  'dl',
+  'dt',
+  'dd',
+  'table',
+  'thead',
+  'tbody',
+  'tfoot',
+  'tr',
+  'td',
+  'th',
+  'caption',
+  'colgroup',
+  'col',
+  'img',
+  'a',
+  'span',
+  'div',
+  'blockquote',
+  'pre',
+  'code',
+  'figure',
+  'figcaption',
+  'section',
+  'article',
+  'header',
+  'footer',
+  'main',
+  'aside',
+  'nav',
 ])
-
-const DANGEROUS_ATTRS = /\s+[\w\-:.]*\s*=\s*(?:"[^"]*"|'[^']*'|\S+)/gi
-const ATTR_WHITELIST = new Set([
-  'href', 'src', 'alt', 'title', 'width', 'height', 'colspan', 'rowspan',
-  'align', 'valign', 'border', 'cellpadding', 'cellspacing', 'scope',
-  'class', 'id', 'style', 'type', 'start', 'reversed', 'value',
-  'colspan', 'rowspan', 'headers', 'abbr', 'download', 'target',
-  'loading', 'decoding', 'sizes', 'srcset', 'usemap', 'ismap',
-  'span', 'bgcolor', 'color', 'face', 'size',
-])
-const DANGEROUS_ATTR_NAMES = new Set([
-  'onfocus', 'onblur', 'onchange', 'onclick', 'ondblclick', 'onkeydown',
-  'onkeypress', 'onkeyup', 'onmousedown', 'onmousemove', 'onmouseout',
-  'onmouseover', 'onmouseup', 'onreset', 'onselect', 'onsubmit', 'onload',
-  'onerror', 'onunload', 'onresize', 'onscroll', 'onwheel', 'oncopy',
-  'oncut', 'onpaste', 'onabort', 'oncanplay', 'oncuechange', 'ondurationchange',
-  'onemptied', 'onended', 'onloadeddata', 'onloadedmetadata', 'onloadstart',
-  'onpause', 'onplay', 'onplaying', 'onprogress', 'onratechange', 'onseeked',
-  'onseeking', 'onstalled', 'onsuspend', 'ontimeupdate', 'onvolumechange',
-  'onwaiting', 'onanimationend', 'onanimationiteration', 'onanimationstart',
-  'ontransitionend', 'onmessage', 'onopen', 'onclose', 'formaction',
-  'dynsrc', 'lowsrc', 'data-bind', 'v-bind', 'xlink:href',
-  'xmlns', 'xlink',
-])
-const DANGEROUS_STYLE = /expression\s*\(|behavior\s*:|-moz-binding\s*:|@import\s+|url\s*\(|-o-link\s*:|-o-replace\s*:|@charset\s+/i
-const DANGEROUS_URI_ATTRS = /\b(?:href|src|action|poster)\s*=\s*["']?\s*(?:javascript|vbscript|data)\s*:/gi
-const SCRIPT_TAGS = /<\s*\/?\s*(?:script|style|iframe|object|embed|applet|form|input|textarea|select|button|svg|math|marquee|base|link|meta)\b[^>]*>/gi
-const HTML_COMMENTS = /<!--[\s\S]*?-->/g
-const DATA_URI_SCRIPT = /\bdata\s*:\s*text\/html/gi
 
 function sanitizeHtml(html) {
-  let result = html
-  result = result.replace(HTML_COMMENTS, '')
-  result = result.replace(SCRIPT_TAGS, '')
-  result = result.replace(DATA_URI_SCRIPT, 'data:text/plain')
-  result = result.replace(/<\/?(\w[\w\-:.]*)[^>]*\/?>/gi, (match, tagName) => {
-    const tag = tagName.toLowerCase().replace(/[^a-z0-9-]/g, '')
-    if (!ALLOWED_HTML_TAGS.has(tag)) return ''
-    let cleaned = match
-    cleaned = cleaned.replace(DANGEROUS_ATTRS, (attrMatch) => {
-      const eqIndex = attrMatch.indexOf('=')
-      if (eqIndex === -1) return ''
-      const attrName = attrMatch.substring(0, eqIndex).trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
-      if (DANGEROUS_ATTR_NAMES.has(attrName)) return ''
-      if (attrName.startsWith('on')) return ''
-      if (!ATTR_WHITELIST.has(attrName)) return ''
-      const val = attrMatch.substring(eqIndex + 1).trim()
-      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-        return ` ${attrName}=${val}`
-      }
-      return ` ${attrName}="${val.replace(/"/g, '&quot;')}"`
-    })
-    cleaned = cleaned.replace(DANGEROUS_URI_ATTRS, (m) => m.replace(/(href|src|action|poster)\s*=\s*["']?\s*(?:javascript|vbscript|data)\s*:/gi, '$1="#"'))
-    cleaned = cleaned.replace(/\bstyle\s*=\s*"([^"]*)"/gi, (m, val) => {
-      if (DANGEROUS_STYLE.test(val)) return ''
-      return m
-    })
-    cleaned = cleaned.replace(/\bstyle\s*=\s*'([^']*)'/gi, (m, val) => {
-      if (DANGEROUS_STYLE.test(val)) return ''
-      return m
-    })
-    return cleaned
+  return dompurify.sanitize(html, {
+    ALLOWED_TAGS: [...ALLOWED_HTML_TAGS],
+    ALLOWED_ATTR: [
+      'href',
+      'src',
+      'alt',
+      'title',
+      'width',
+      'height',
+      'colspan',
+      'rowspan',
+      'align',
+      'valign',
+      'border',
+      'cellpadding',
+      'cellspacing',
+      'scope',
+      'class',
+      'id',
+      'style',
+      'type',
+      'start',
+      'reversed',
+      'value',
+      'headers',
+      'abbr',
+      'download',
+      'target',
+      'loading',
+      'decoding',
+      'sizes',
+      'srcset',
+      'span',
+      'bgcolor',
+      'color',
+      'face',
+      'size',
+    ],
+    ALLOW_DATA_ATTR: false,
+    FORBID_TAGS: [
+      'style',
+      'script',
+      'iframe',
+      'object',
+      'embed',
+      'applet',
+      'form',
+      'input',
+      'textarea',
+      'select',
+      'button',
+      'svg',
+      'math',
+      'marquee',
+      'base',
+      'link',
+      'meta',
+    ],
+    FORBID_ATTR: [
+      'onfocus',
+      'onblur',
+      'onchange',
+      'onclick',
+      'ondblclick',
+      'onkeydown',
+      'onkeypress',
+      'onkeyup',
+      'onmousedown',
+      'onmousemove',
+      'onmouseout',
+      'onmouseover',
+      'onmouseup',
+      'onreset',
+      'onselect',
+      'onsubmit',
+      'onload',
+      'onerror',
+      'formaction',
+      'xlink:href',
+    ],
   })
-  return result
 }
 
-function sanitizeDefaultPath(input) {
-  if (!input || typeof input !== 'string') return ''
-  let decoded
-  try {
-    decoded = decodeURIComponent(input).replace(/%2e/gi, '.').replace(/%252e/gi, '.')
-  } catch {
-    decoded = input.replace(/%2e/gi, '.').replace(/%252e/gi, '.')
-  }
-  let sanitized = decoded.replace(/\.\./g, '')
-  sanitized = path.normalize(sanitized)
-  if (sanitized.includes('..')) return ''
-  if (path.isAbsolute(sanitized)) {
-    sanitized = path.basename(sanitized)
-  }
-  return sanitized
-}
-
-ipcMain.handle('convert:wordToPdf', async (event, filePath) => {
+async function wordBufferToPdfBuffer(wordBuffer) {
   let win = null
   try {
-    if (!isPathSafe(filePath)) throw new Error('Invalid file path')
-    if (!isPathAllowed(filePath, 'read')) throw new Error('Access denied to this file path')
-    if (await isSymlink(filePath)) throw new Error('Symbolic links are not allowed')
-
+    if (wordBuffer.length > MAX_WORD_INPUT_SIZE) {
+      throw new Error(`Word 文档过大（最大 ${MAX_WORD_INPUT_SIZE / 1024 / 1024}MB）`)
+    }
     const mammoth = require('mammoth')
-    const result = await mammoth.convertToHtml({ path: filePath })
+    const result = await mammoth.convertToHtml({ buffer: wordBuffer })
     const html = result.value
 
     const sanitizedHtml = sanitizeHtml(html)
@@ -158,7 +187,7 @@ ipcMain.handle('convert:wordToPdf', async (event, filePath) => {
         sandbox: true,
         webgl: false,
         enableWebSQL: false,
-      }
+      },
     })
 
     const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:;"><style>
@@ -177,10 +206,24 @@ ipcMain.handle('convert:wordToPdf', async (event, filePath) => {
     const pdfData = await win.webContents.printToPDF({
       printBackground: true,
       pageSize: 'A4',
-      margins: { top: 0, bottom: 0, left: 0, right: 0 }
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
     })
 
-    return { data: new Uint8Array(pdfData) }
+    return new Uint8Array(pdfData)
+  } finally {
+    if (win) win.destroy()
+  }
+}
+
+ipcMain.handle('convert:wordToPdf', async (event, filePath) => {
+  try {
+    if (!isPathSafe(filePath)) throw new Error('Invalid file path')
+    if (!isPathAllowed(filePath, 'read')) throw new Error('Access denied to this file path')
+    if (await isSymlink(filePath)) throw new Error('Symbolic links are not allowed')
+
+    const wordBuffer = await fs.promises.readFile(filePath)
+    const pdfBuffer = await wordBufferToPdfBuffer(wordBuffer)
+    return { data: pdfBuffer }
   } catch (error) {
     if (error.message?.includes('mammoth') || error.message?.includes('convertToHtml')) {
       return { error: 'Word 文档解析失败，请检查文件格式是否正确' }
@@ -188,10 +231,30 @@ ipcMain.handle('convert:wordToPdf', async (event, filePath) => {
       return { error: 'PDF 生成失败，请重试' }
     } else {
       console.error('Word to PDF conversion error:', error)
-      return { error: '转换失败，请检查文件是否损坏或格式是否支持' }
+      return { error: sanitizeError(error, '转换失败，请检查文件是否损坏或格式是否支持') }
     }
-  } finally {
-    if (win) win.destroy()
+  }
+})
+
+ipcMain.handle('convert:wordToPdfData', async (event, data) => {
+  try {
+    if (!data || !(data instanceof Uint8Array)) {
+      throw new Error('Invalid Word data')
+    }
+    if (data.length > MAX_WORD_INPUT_SIZE) {
+      throw new Error(`Word 文档过大（最大 ${MAX_WORD_INPUT_SIZE / 1024 / 1024}MB）`)
+    }
+    const pdfBuffer = await wordBufferToPdfBuffer(data)
+    return { data: pdfBuffer }
+  } catch (error) {
+    if (error.message?.includes('mammoth') || error.message?.includes('convertToHtml')) {
+      return { error: 'Word 文档解析失败，请检查文件格式是否正确' }
+    } else if (error.message?.includes('printToPDF')) {
+      return { error: 'PDF 生成失败，请重试' }
+    } else {
+      console.error('Word to PDF (data) conversion error:', error)
+      return { error: sanitizeError(error, '转换失败，请检查文件是否损坏或格式是否支持') }
+    }
   }
 })
 
@@ -206,6 +269,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
       devTools: !app.isPackaged,
     },
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
@@ -214,8 +278,7 @@ function createWindow() {
   })
 
   win.on('closed', () => {
-    allowedPaths.clear()
-    allowedOutputDirs.clear()
+    pathRegistry.clear()
   })
 
   if (!app.isPackaged) {
@@ -235,9 +298,9 @@ app.whenReady().then(() => {
         'Content-Security-Policy': [
           app.isPackaged
             ? "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net; worker-src 'self' blob:"
-            : "default-src 'self' http://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:*; style-src 'self' 'unsafe-inline' http://localhost:*; img-src 'self' data: blob: http://localhost:*; font-src 'self' data: http://localhost:*; connect-src 'self' ws: http://localhost:* https://cdn.jsdelivr.net; worker-src 'self' blob: http://localhost:*"
-        ]
-      }
+            : "default-src 'self' http://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:*; style-src 'self' 'unsafe-inline' http://localhost:*; img-src 'self' data: blob: http://localhost:*; font-src 'self' data: http://localhost:*; connect-src 'self' ws: http://localhost:* https://cdn.jsdelivr.net; worker-src 'self' blob: http://localhost:*",
+        ],
+      },
     })
   })
 
@@ -265,12 +328,12 @@ ipcMain.handle('dialog:openFile', async (event, options) => {
       { name: 'Image Files', extensions: ['png', 'jpg', 'jpeg'] },
       { name: 'All Files', extensions: ['*'] },
     ],
-    defaultPath: safeDefaultPath
+    defaultPath: safeDefaultPath,
   }
   const result = await dialog.showOpenDialog(safeOptions)
   if (!result.canceled && result.filePaths.length > 0) {
-    result.filePaths.forEach(filePath => {
-      allowedPaths.add(path.normalize(filePath))
+    result.filePaths.forEach((filePath) => {
+      pathRegistry.add(filePath)
     })
   }
   return result
@@ -284,19 +347,11 @@ ipcMain.handle('dialog:saveFile', async (event, options) => {
       { name: 'Text Files', extensions: ['txt'] },
       { name: 'All Files', extensions: ['*'] },
     ],
-    defaultPath: safeFileName
-      ? path.join(getUserDocsPath(), safeFileName)
-      : getUserDocsPath()
+    defaultPath: safeFileName ? path.join(getUserDocsPath(), safeFileName) : getUserDocsPath(),
   }
   const result = await dialog.showSaveDialog(safeOptions)
   if (!result.canceled && result.filePath) {
-    const normalized = path.normalize(result.filePath)
-    allowedPaths.add(normalized)
-    const ext = path.extname(normalized).toLowerCase()
-    const basename = path.basename(normalized, ext)
-    const dir = path.dirname(normalized)
-    const prefix = basename.replace(/_[^_]*$/, '')
-    allowedOutputDirs.set(dir, { prefix })
+    pathRegistry.add(result.filePath)
   }
   return result
 })
@@ -313,8 +368,8 @@ ipcMain.handle('fs:readFile', async (event, filePath) => {
       throw new Error('Symbolic links are not allowed')
     }
     const stat = await fs.promises.stat(filePath)
-    if (stat.size > 200 * 1024 * 1024) {
-      throw new Error('File too large (max 200MB)')
+    if (stat.size > MAX_READ_SIZE) {
+      throw new Error(`File too large (max ${MAX_READ_SIZE / 1024 / 1024}MB)`)
     }
     const buffer = await fs.promises.readFile(filePath)
     const ext = path.extname(filePath).toLowerCase()
@@ -326,15 +381,15 @@ ipcMain.handle('fs:readFile', async (event, filePath) => {
     }
     if (['.png', '.jpg', '.jpeg'].includes(ext) && buffer.length >= 4) {
       const magic = buffer.slice(0, 4)
-      const isPng = magic[0] === 0x89 && magic[1] === 0x50 && magic[2] === 0x4E && magic[3] === 0x47
-      const isJpg = magic[0] === 0xFF && magic[1] === 0xD8
+      const isPng = magic[0] === 0x89 && magic[1] === 0x50 && magic[2] === 0x4e && magic[3] === 0x47
+      const isJpg = magic[0] === 0xff && magic[1] === 0xd8
       if (!isPng && !isJpg) {
         throw new Error('Not a valid image file')
       }
     }
     return buffer
   } catch (error) {
-    return { error: error.message }
+    return { error: sanitizeError(error, '文件读取失败') }
   }
 })
 
@@ -349,14 +404,16 @@ ipcMain.handle('fs:writeFile', async (event, filePath, buffer) => {
     if (await isSymlink(filePath)) {
       throw new Error('Symbolic links are not allowed')
     }
-    const dir = path.dirname(filePath)
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
+    const data = Buffer.from(buffer || [])
+    if (data.length > MAX_WRITE_SIZE) {
+      throw new Error(`写入内容过大（最大 ${MAX_WRITE_SIZE / 1024 / 1024}MB）`)
     }
-    await fs.promises.writeFile(filePath, Buffer.from(buffer))
+    const dir = path.dirname(filePath)
+    await fs.promises.mkdir(dir, { recursive: true })
+    await fs.promises.writeFile(filePath, data)
     return true
   } catch (error) {
-    return { error: error.message }
+    return { error: sanitizeError(error, '文件写入失败') }
   }
 })
 
@@ -371,48 +428,53 @@ ipcMain.handle('fs:exists', async (event, filePath) => {
     if (await isSymlink(filePath)) {
       return false
     }
-    return fs.existsSync(filePath)
+    return fs.promises
+      .stat(filePath)
+      .then(() => true)
+      .catch(() => false)
   } catch {
     return false
   }
 })
 
-const fontkit = require('@pdf-lib/fontkit')
-
-function sliceTtcFirstFont(buffer) {
-  const ttc = fontkit.create(buffer)
-  const offsets = [...ttc.header.offsets].sort((a, b) => a - b)
-  const start = offsets[0]
-  const end = offsets[1] != null ? offsets[1] : buffer.length
-  return buffer.subarray(start, end)
-}
-
 ipcMain.handle('fs:readSystemFont', async (event, fontName) => {
   try {
     const platform = process.platform
     const fontPaths = {
-      'simsun': platform === 'win32'
-        ? path.join(process.env.WINDIR || 'C:\\Windows', 'Fonts', 'STSONG.TTF')
-        : platform === 'darwin'
-          ? '/System/Library/Fonts/STSong.ttf'
-          : '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf',
-      'msyh': platform === 'win32'
-        ? path.join(process.env.WINDIR || 'C:\\Windows', 'Fonts', 'STXIHEI.TTF')
-        : platform === 'darwin'
-          ? '/System/Library/Fonts/PingFang.ttc'
-          : '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf',
+      simsun:
+        platform === 'win32'
+          ? path.join(process.env.WINDIR || 'C:\\Windows', 'Fonts', 'STSONG.TTF')
+          : platform === 'darwin'
+            ? '/System/Library/Fonts/STSong.ttf'
+            : '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf',
+      msyh:
+        platform === 'win32'
+          ? path.join(process.env.WINDIR || 'C:\\Windows', 'Fonts', 'STXIHEI.TTF')
+          : platform === 'darwin'
+            ? '/System/Library/Fonts/PingFang.ttc'
+            : '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf',
     }
     const fontPath = fontPaths[fontName]
-    if (!fontPath || !fs.existsSync(fontPath)) {
+    if (!fontPath) {
+      return { error: `字体文件不存在: ${fontName}` }
+    }
+    try {
+      await fs.promises.access(fontPath)
+    } catch {
       return { error: `字体文件不存在: ${fontName}` }
     }
     let buffer = await fs.promises.readFile(fontPath)
     if (buffer.length >= 4 && buffer.slice(0, 4).toString('ascii') === 'ttcf') {
-      buffer = sliceTtcFirstFont(buffer)
+      const fontkit = require('@pdf-lib/fontkit')
+      const ttc = fontkit.create(buffer)
+      const offsets = [...ttc.header.offsets].sort((a, b) => a - b)
+      const start = offsets[0]
+      const end = offsets[1] != null ? offsets[1] : buffer.length
+      buffer = buffer.subarray(start, end)
     }
     return buffer
   } catch (error) {
-    return { error: error.message }
+    return { error: sanitizeError(error, '系统字体加载失败') }
   }
 })
 
@@ -434,7 +496,7 @@ ipcMain.handle('fs:stat', async (event, filePath) => {
       isDirectory: stat.isDirectory(),
     }
   } catch (error) {
-    return { error: error.message }
+    return { error: sanitizeError(error, '获取文件信息失败') }
   }
 })
 
@@ -442,34 +504,88 @@ function getQpdfPath() {
   const binDir = app.isPackaged
     ? __dirname.replace(/app\.asar([\\/])/, 'app.asar.unpacked$1')
     : __dirname
-  return path.join(binDir, 'bin', 'qpdf', 'qpdf.exe')
+  const exeName = process.platform === 'win32' ? 'qpdf.exe' : 'qpdf'
+  return path.join(binDir, 'bin', 'qpdf', exeName)
 }
 
 function sanitizePassword(pwd) {
   if (typeof pwd !== 'string') return ''
-  return pwd.replace(/[\x00-\x1f]/g, '').slice(0, 256)
+  return pwd.replace(/[\x00-\x1f]/g, '').slice(0, 256) // eslint-disable-line no-control-regex
+}
+
+function runQpdf(args, password, timeoutMs = 30000) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(getQpdfPath(), args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+    let stderr = ''
+    let settled = false
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      child.kill('SIGKILL')
+      reject(new Error(`qpdf 操作超时（${timeoutMs / 1000}秒）`))
+    }, timeoutMs)
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString('utf8')
+    })
+    child.on('error', (err) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      reject(err)
+    })
+    child.on('close', (code) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      if (code === 0) {
+        resolve()
+      } else {
+        reject(new Error(stderr.trim() || `qpdf 退出码 ${code}`))
+      }
+    })
+    if (password !== undefined && password !== null) {
+      try {
+        child.stdin.write(password + '\n')
+      } catch (err) {
+        // 子进程可能已关闭（超时/崩溃）；保证不触发 unhandled
+        if (!settled) {
+          settled = true
+          clearTimeout(timer)
+          reject(err instanceof Error ? err : new Error(String(err)))
+        }
+      }
+    }
+    try {
+      child.stdin.end()
+    } catch {
+      // 同上：stdin 可能已关闭，忽略
+    }
+  })
 }
 
 ipcMain.handle('encrypt:encryptPdf', async (event, options) => {
   const tmpDir = app.getPath('temp')
-  const inputPath = path.join(tmpDir, `qpdf-in-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`)
-  const outputPath = path.join(tmpDir, `qpdf-out-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`)
+  const inputPath = path.join(tmpDir, `qpdf-in-${crypto.randomUUID()}.pdf`)
+  const outputPath = path.join(tmpDir, `qpdf-out-${crypto.randomUUID()}.pdf`)
 
   try {
     if (!options || typeof options !== 'object') throw new Error('Invalid options')
     if (!options.data || !(options.data instanceof Uint8Array)) throw new Error('Invalid PDF data')
-    if (!options.userPassword && !options.ownerPassword) throw new Error('请至少设置用户密码或所有者密码')
+    if (!options.userPassword && !options.ownerPassword)
+      throw new Error('请至少设置用户密码或所有者密码')
 
     const keyLength = options.keyLength || 256
-    if (![40, 128, 256].includes(keyLength)) throw new Error('不支持的密钥长度')
+    if (![128, 256].includes(keyLength)) throw new Error('不支持的密钥长度')
     const userPassword = sanitizePassword(options.userPassword || '')
     const ownerPassword = sanitizePassword(options.ownerPassword || '')
 
     await fs.promises.writeFile(inputPath, Buffer.from(options.data))
 
-    const args = [
-      '--encrypt', userPassword, ownerPassword, String(keyLength),
-    ]
+    const args = ['--encrypt', '--password=-', String(keyLength)]
+    const combinedPassword = `${userPassword}\n${ownerPassword}`
 
     if (keyLength === 128) {
       if (options.restrictions) {
@@ -489,33 +605,29 @@ ipcMain.handle('encrypt:encryptPdf', async (event, options) => {
       }
     }
 
-    args.push('--', inputPath, outputPath)
+    args.push('--')
+    args.push(inputPath, outputPath)
 
-    await new Promise((resolve, reject) => {
-      execFile(getQpdfPath(), args, { timeout: 30000 }, (error, stdout, stderr) => {
-        if (error) {
-          const msg = stderr?.trim() || error.message
-          reject(new Error(msg))
-        } else {
-          resolve()
-        }
-      })
-    })
+    await runQpdf(args, combinedPassword)
 
     const result = await fs.promises.readFile(outputPath)
     return { data: new Uint8Array(result) }
   } catch (error) {
-    return { error: error.message || '加密失败' }
+    return { error: sanitizeError(error, '加密失败') }
   } finally {
-    try { await fs.promises.unlink(inputPath) } catch {}
-    try { await fs.promises.unlink(outputPath) } catch {}
+    try {
+      await fs.promises.unlink(inputPath)
+    } catch {}
+    try {
+      await fs.promises.unlink(outputPath)
+    } catch {}
   }
 })
 
 ipcMain.handle('encrypt:decryptPdf', async (event, options) => {
   const tmpDir = app.getPath('temp')
-  const inputPath = path.join(tmpDir, `qpdf-in-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`)
-  const outputPath = path.join(tmpDir, `qpdf-out-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`)
+  const inputPath = path.join(tmpDir, `qpdf-in-${crypto.randomUUID()}.pdf`)
+  const outputPath = path.join(tmpDir, `qpdf-out-${crypto.randomUUID()}.pdf`)
 
   try {
     if (!options || typeof options !== 'object') throw new Error('Invalid options')
@@ -525,28 +637,28 @@ ipcMain.handle('encrypt:decryptPdf', async (event, options) => {
     const password = sanitizePassword(options.password)
     await fs.promises.writeFile(inputPath, Buffer.from(options.data))
 
-    const args = ['--decrypt', `--password=${password}`, '--', inputPath, outputPath]
+    const args = ['--decrypt', '--password=-', '--', inputPath, outputPath]
 
-    await new Promise((resolve, reject) => {
-      execFile(getQpdfPath(), args, { timeout: 30000 }, (error, stdout, stderr) => {
-        if (error) {
-          const msg = stderr?.trim() || error.message
-          reject(new Error(msg))
-        } else {
-          resolve()
-        }
-      })
-    })
+    try {
+      await runQpdf(args, password)
+    } catch (err) {
+      const msg = (err && err.message) || ''
+      if (/invalid\s*password|password/i.test(msg)) {
+        return { error: '密码错误，无法解密' }
+      }
+      throw err
+    }
 
     const result = await fs.promises.readFile(outputPath)
     return { data: new Uint8Array(result) }
   } catch (error) {
-    if (error.message?.includes('invalid password')) {
-      return { error: '密码错误，无法解密' }
-    }
-    return { error: error.message || '解密失败' }
+    return { error: sanitizeError(error, '解密失败') }
   } finally {
-    try { await fs.promises.unlink(inputPath) } catch {}
-    try { await fs.promises.unlink(outputPath) } catch {}
+    try {
+      await fs.promises.unlink(inputPath)
+    } catch {}
+    try {
+      await fs.promises.unlink(outputPath)
+    } catch {}
   }
 })

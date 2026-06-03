@@ -5,7 +5,7 @@ export interface PDFFile {
   name: string
   size: number
   pageCount: number
-  data: Uint8Array
+  headerHash: string
 }
 
 export interface EncryptRestrictions {
@@ -21,7 +21,7 @@ export interface EncryptOptions {
   data: Uint8Array
   userPassword: string
   ownerPassword?: string
-  keyLength?: 40 | 128 | 256
+  keyLength?: 128 | 256
   restrictions?: EncryptRestrictions
 }
 
@@ -38,6 +38,7 @@ export interface ElectronAPI {
   fileExists: (filePath: string) => Promise<boolean>
   fileStat: (filePath: string) => Promise<{ size: number; isFile: boolean; isDirectory: boolean }>
   convertWordToPdf: (filePath: string) => Promise<{ data?: Uint8Array; error?: string }>
+  convertWordToPdfData: (data: Uint8Array) => Promise<{ data?: Uint8Array; error?: string }>
   encryptPdf: (options: EncryptOptions) => Promise<{ data?: Uint8Array; error?: string }>
   decryptPdf: (options: DecryptOptions) => Promise<{ data?: Uint8Array; error?: string }>
   readSystemFont: (fontName: string) => Promise<Uint8Array | FileResult>
@@ -52,9 +53,23 @@ declare global {
 
 export type ProgressCallback = (progress: number) => void
 
-export type WatermarkPosition = 'top-left' | 'top-center' | 'top-right' | 'center' | 'bottom-left' | 'bottom-center' | 'bottom-right' | 'tile'
+export type WatermarkPosition =
+  | 'top-left'
+  | 'top-center'
+  | 'top-right'
+  | 'center'
+  | 'bottom-left'
+  | 'bottom-center'
+  | 'bottom-right'
+  | 'tile'
 
-export type PageNumberPosition = 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right'
+export type PageNumberPosition =
+  | 'top-left'
+  | 'top-center'
+  | 'top-right'
+  | 'bottom-left'
+  | 'bottom-center'
+  | 'bottom-right'
 
 export interface Annotation {
   pageIndex: number

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t, ErrorCode } from '@/lib/i18n'
 import { motion } from 'framer-motion'
 import { ScanText, CheckSquare, Square } from 'lucide-react'
 import { toast } from 'sonner'
@@ -7,7 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type { UsePDFReturn } from '@/hooks/usePDF'
 import { useFileSelection } from '@/hooks/useFileSelection'
 import { useOperation } from '@/hooks/useOperation'
@@ -25,7 +32,8 @@ const LANGUAGES = [
 ]
 
 export function OcrPanel({ pdf }: OcrPanelProps) {
-  const { selectedFiles, selectedCount, isAllSelected, toggleFile, toggleAll, isSelected } = useFileSelection(pdf.files)
+  const { selectedFiles, selectedCount, isAllSelected, toggleFile, toggleAll, isSelected } =
+    useFileSelection(pdf.files)
   const [language, setLanguage] = useState('chi_sim+eng')
   const { isProcessing, progress, execute, cancel } = useOperation({
     errorMessagePrefix: 'OCR失败',
@@ -34,24 +42,27 @@ export function OcrPanel({ pdf }: OcrPanelProps) {
 
   const handleOcr = async () => {
     if (selectedCount === 0) {
-      toast.error('请先选择PDF文件')
+      toast.error(t(ErrorCode.NO_PDF_SELECTED))
       return
     }
 
-    const result = await execute(async (onProgress, token) => {
-      let completed = 0
-      for (const fileId of selectedFiles) {
-        token.throwIfCancelled()
-        await pdf.ocrPDF(
-          fileId,
-          language,
-          p => onProgress(Math.round(((completed + p / 100) / selectedCount) * 100)),
-          token
-        )
-        completed++
-      }
-      return completed
-    })
+    const result = await execute(
+      async (onProgress, token) => {
+        let completed = 0
+        for (const fileId of selectedFiles) {
+          token.throwIfCancelled()
+          await pdf.ocrPDF(
+            fileId,
+            language,
+            (p) => onProgress(Math.round(((completed + p / 100) / selectedCount) * 100)),
+            token,
+          )
+          completed++
+        }
+        return completed
+      },
+      { lockFileIds: Array.from(selectedFiles) },
+    )
 
     if (result) {
       toast.success('全部OCR完成！')
@@ -65,9 +76,7 @@ export function OcrPanel({ pdf }: OcrPanelProps) {
           <ScanText className="h-5 w-5" />
           OCR文字识别
         </CardTitle>
-        <CardDescription>
-          从扫描版PDF中提取文字，支持100+种语言
-        </CardDescription>
+        <CardDescription>从扫描版PDF中提取文字，支持100+种语言</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {pdf.files.length === 0 ? (
@@ -79,14 +88,20 @@ export function OcrPanel({ pdf }: OcrPanelProps) {
                 <Label>选择文件</Label>
                 <Button variant="ghost" size="sm" onClick={toggleAll} className="h-7 text-xs">
                   {isAllSelected ? (
-                    <><CheckSquare className="mr-1 h-3.5 w-3.5" />取消全选</>
+                    <>
+                      <CheckSquare className="mr-1 h-3.5 w-3.5" />
+                      取消全选
+                    </>
                   ) : (
-                    <><Square className="mr-1 h-3.5 w-3.5" />全选</>
+                    <>
+                      <Square className="mr-1 h-3.5 w-3.5" />
+                      全选
+                    </>
                   )}
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {pdf.files.map(file => (
+                {pdf.files.map((file) => (
                   <Badge
                     key={file.id}
                     variant={isSelected(file.id) ? 'default' : 'outline'}
@@ -104,12 +119,12 @@ export function OcrPanel({ pdf }: OcrPanelProps) {
 
             <div className="space-y-2">
               <Label>识别语言</Label>
-              <Select value={language} onValueChange={v => setLanguage(v as typeof language)}>
+              <Select value={language} onValueChange={(v) => setLanguage(v as typeof language)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {LANGUAGES.map(lang => (
+                  {LANGUAGES.map((lang) => (
                     <SelectItem key={lang.value} value={lang.value}>
                       {lang.label}
                     </SelectItem>
@@ -120,20 +135,12 @@ export function OcrPanel({ pdf }: OcrPanelProps) {
 
             <div className="flex gap-2">
               {!isProcessing ? (
-                <Button
-                  className="flex-1"
-                  onClick={handleOcr}
-                  disabled={selectedCount === 0}
-                >
+                <Button className="flex-1" onClick={handleOcr} disabled={selectedCount === 0}>
                   <ScanText className="mr-2 h-4 w-4" />
                   开始识别
                 </Button>
               ) : (
-                <Button
-                  variant="destructive"
-                  className="flex-1"
-                  onClick={cancel}
-                >
+                <Button variant="destructive" className="flex-1" onClick={cancel}>
                   取消
                 </Button>
               )}
@@ -146,9 +153,7 @@ export function OcrPanel({ pdf }: OcrPanelProps) {
                 className="space-y-2"
               >
                 <Progress value={progress} />
-                <p className="text-sm text-muted-foreground text-center">
-                  正在识别... {progress}%
-                </p>
+                <p className="text-sm text-muted-foreground text-center">正在识别... {progress}%</p>
               </motion.div>
             )}
 

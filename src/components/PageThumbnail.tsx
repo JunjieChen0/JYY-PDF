@@ -1,16 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { FileText, Loader2 } from 'lucide-react'
-
-const MAX_THUMBNAIL_CACHE = 50
-const thumbnailCache = new Map<string, string>()
-
-function setCache(key: string, value: string) {
-  if (thumbnailCache.size >= MAX_THUMBNAIL_CACHE) {
-    const firstKey = thumbnailCache.keys().next().value
-    if (firstKey !== undefined) thumbnailCache.delete(firstKey)
-  }
-  thumbnailCache.set(key, value)
-}
+import { getThumbnailFromCache, setThumbnailToCache } from '@/lib/pdf-data-store'
 
 interface PageThumbnailProps {
   fileId: string
@@ -35,7 +25,7 @@ export function PageThumbnail({
     mountedRef.current = true
     const cacheKey = `${fileId}_${pageIndex}_${maxWidth}`
 
-    const cached = thumbnailCache.get(cacheKey)
+    const cached = getThumbnailFromCache(cacheKey)
     if (cached) {
       setSrc(cached)
       setLoading(false)
@@ -43,17 +33,19 @@ export function PageThumbnail({
     }
 
     setLoading(true)
-    getThumbnail(fileId, pageIndex, maxWidth).then(dataUrl => {
-      if (!mountedRef.current) return
-      if (dataUrl) {
-        setCache(cacheKey, dataUrl)
-        setSrc(dataUrl)
-      }
-      setLoading(false)
-    }).catch(() => {
-      if (!mountedRef.current) return
-      setLoading(false)
-    })
+    getThumbnail(fileId, pageIndex, maxWidth)
+      .then((dataUrl) => {
+        if (!mountedRef.current) return
+        if (dataUrl) {
+          setThumbnailToCache(cacheKey, dataUrl)
+          setSrc(dataUrl)
+        }
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!mountedRef.current) return
+        setLoading(false)
+      })
 
     return () => {
       mountedRef.current = false
@@ -90,16 +82,4 @@ export function PageThumbnail({
       style={{ width: maxWidth, height: maxWidth * 1.414 }}
     />
   )
-}
-
-export function clearThumbnailCache() {
-  thumbnailCache.clear()
-}
-
-export function clearThumbnailCacheForFile(fileId: string) {
-  for (const key of thumbnailCache.keys()) {
-    if (key.startsWith(`${fileId}_`)) {
-      thumbnailCache.delete(key)
-    }
-  }
 }

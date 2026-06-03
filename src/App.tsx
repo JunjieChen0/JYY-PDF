@@ -3,7 +3,7 @@ import { FileText, Moon, Sun } from 'lucide-react'
 import { useState, useEffect, Suspense, lazy } from 'react'
 import { Toaster } from 'sonner'
 
-const APP_VERSION = import.meta.env.APP_VERSION
+import { APP_VERSION } from '@/lib/build-info'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
@@ -11,20 +11,45 @@ import { FileDropZone } from '@/components/FileDropZone'
 import { FileList } from '@/components/FileList'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { usePDF } from '@/hooks/usePDF'
+import { useGlobalProcessing } from '@/hooks/useGlobalProcessing'
 
-const MergePanel = lazy(() => import('@/components/MergePanel').then(m => ({ default: m.MergePanel })))
-const SplitPanel = lazy(() => import('@/components/SplitPanel').then(m => ({ default: m.SplitPanel })))
-const PageOperations = lazy(() => import('@/components/PageOperations').then(m => ({ default: m.PageOperations })))
-const CompressPanel = lazy(() => import('@/components/CompressPanel').then(m => ({ default: m.CompressPanel })))
-const EncryptPanel = lazy(() => import('@/components/EncryptPanel').then(m => ({ default: m.EncryptPanel })))
-const WatermarkPanel = lazy(() => import('@/components/WatermarkPanel').then(m => ({ default: m.WatermarkPanel })))
-const PageNumbersPanel = lazy(() => import('@/components/PageNumbersPanel').then(m => ({ default: m.PageNumbersPanel })))
-const ConvertPanel = lazy(() => import('@/components/ConvertPanel').then(m => ({ default: m.ConvertPanel })))
-const ImagesToPdfPanel = lazy(() => import('@/components/ImagesToPdfPanel').then(m => ({ default: m.ImagesToPdfPanel })))
-const SignaturePanel = lazy(() => import('@/components/SignaturePanel').then(m => ({ default: m.SignaturePanel })))
-const EditPanel = lazy(() => import('@/components/EditPanel').then(m => ({ default: m.EditPanel })))
-const OcrPanel = lazy(() => import('@/components/OcrPanel').then(m => ({ default: m.OcrPanel })))
-const ConvertOfficePanel = lazy(() => import('@/components/ConvertOfficePanel').then(m => ({ default: m.ConvertOfficePanel })))
+const MergePanel = lazy(() =>
+  import('@/components/MergePanel').then((m) => ({ default: m.MergePanel })),
+)
+const SplitPanel = lazy(() =>
+  import('@/components/SplitPanel').then((m) => ({ default: m.SplitPanel })),
+)
+const PageOperations = lazy(() =>
+  import('@/components/PageOperations').then((m) => ({ default: m.PageOperations })),
+)
+const CompressPanel = lazy(() =>
+  import('@/components/CompressPanel').then((m) => ({ default: m.CompressPanel })),
+)
+const EncryptPanel = lazy(() =>
+  import('@/components/EncryptPanel').then((m) => ({ default: m.EncryptPanel })),
+)
+const WatermarkPanel = lazy(() =>
+  import('@/components/WatermarkPanel').then((m) => ({ default: m.WatermarkPanel })),
+)
+const PageNumbersPanel = lazy(() =>
+  import('@/components/PageNumbersPanel').then((m) => ({ default: m.PageNumbersPanel })),
+)
+const ConvertPanel = lazy(() =>
+  import('@/components/ConvertPanel').then((m) => ({ default: m.ConvertPanel })),
+)
+const ImagesToPdfPanel = lazy(() =>
+  import('@/components/ImagesToPdfPanel').then((m) => ({ default: m.ImagesToPdfPanel })),
+)
+const SignaturePanel = lazy(() =>
+  import('@/components/SignaturePanel').then((m) => ({ default: m.SignaturePanel })),
+)
+const EditPanel = lazy(() =>
+  import('@/components/EditPanel').then((m) => ({ default: m.EditPanel })),
+)
+const OcrPanel = lazy(() => import('@/components/OcrPanel').then((m) => ({ default: m.OcrPanel })))
+const ConvertOfficePanel = lazy(() =>
+  import('@/components/ConvertOfficePanel').then((m) => ({ default: m.ConvertOfficePanel })),
+)
 
 function App() {
   const [darkMode, setDarkMode] = useState(() => {
@@ -36,6 +61,7 @@ function App() {
     }
   })
   const pdf = usePDF()
+  const isAnyProcessing = useGlobalProcessing()
 
   useEffect(() => {
     if (darkMode) {
@@ -89,7 +115,7 @@ function App() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <FileDropZone onFiles={pdf.addFiles} />
+                  <FileDropZone onFiles={pdf.addFiles} disabled={isAnyProcessing} />
                 </motion.div>
 
                 <motion.div
@@ -125,60 +151,118 @@ function App() {
                 >
                   <Tabs defaultValue="merge" className="w-full">
                     <TabsList className="w-full flex flex-wrap h-auto gap-1">
-                      <TabsTrigger value="merge" className="flex-1 min-w-[60px]">合并</TabsTrigger>
-                      <TabsTrigger value="split" className="flex-1 min-w-[60px]">分割</TabsTrigger>
-                      <TabsTrigger value="pages" className="flex-1 min-w-[60px]">页面</TabsTrigger>
-                      <TabsTrigger value="compress" className="flex-1 min-w-[60px]">压缩</TabsTrigger>
-                      <TabsTrigger value="encrypt" className="flex-1 min-w-[60px]">加密</TabsTrigger>
-                      <TabsTrigger value="watermark" className="flex-1 min-w-[60px]">水印</TabsTrigger>
-                      <TabsTrigger value="pagenum" className="flex-1 min-w-[60px]">页码</TabsTrigger>
-                      <TabsTrigger value="convert" className="flex-1 min-w-[60px]">转换</TabsTrigger>
-                      <TabsTrigger value="img2pdf" className="flex-1 min-w-[60px]">图片</TabsTrigger>
-                      <TabsTrigger value="office" className="flex-1 min-w-[60px]">Office</TabsTrigger>
-                      <TabsTrigger value="ocr" className="flex-1 min-w-[60px]">OCR</TabsTrigger>
-                      <TabsTrigger value="edit" className="flex-1 min-w-[60px]">编辑</TabsTrigger>
-                      <TabsTrigger value="sign" className="flex-1 min-w-[60px]">签名</TabsTrigger>
+                      <TabsTrigger value="merge" className="flex-1 min-w-[60px]">
+                        合并
+                      </TabsTrigger>
+                      <TabsTrigger value="split" className="flex-1 min-w-[60px]">
+                        分割
+                      </TabsTrigger>
+                      <TabsTrigger value="pages" className="flex-1 min-w-[60px]">
+                        页面
+                      </TabsTrigger>
+                      <TabsTrigger value="compress" className="flex-1 min-w-[60px]">
+                        压缩
+                      </TabsTrigger>
+                      <TabsTrigger value="encrypt" className="flex-1 min-w-[60px]">
+                        加密
+                      </TabsTrigger>
+                      <TabsTrigger value="watermark" className="flex-1 min-w-[60px]">
+                        水印
+                      </TabsTrigger>
+                      <TabsTrigger value="pagenum" className="flex-1 min-w-[60px]">
+                        页码
+                      </TabsTrigger>
+                      <TabsTrigger value="convert" className="flex-1 min-w-[60px]">
+                        转换
+                      </TabsTrigger>
+                      <TabsTrigger value="img2pdf" className="flex-1 min-w-[60px]">
+                        图片
+                      </TabsTrigger>
+                      <TabsTrigger value="office" className="flex-1 min-w-[60px]">
+                        Office
+                      </TabsTrigger>
+                      <TabsTrigger value="ocr" className="flex-1 min-w-[60px]">
+                        OCR
+                      </TabsTrigger>
+                      <TabsTrigger value="edit" className="flex-1 min-w-[60px]">
+                        编辑
+                      </TabsTrigger>
+                      <TabsTrigger value="sign" className="flex-1 min-w-[60px]">
+                        签名
+                      </TabsTrigger>
                     </TabsList>
-                    <Suspense fallback={<div className="flex items-center justify-center p-8 text-muted-foreground text-sm">加载中...</div>}>
-                    <TabsContent value="merge">
-                      <ErrorBoundary><MergePanel pdf={pdf} /></ErrorBoundary>
-                    </TabsContent>
-                    <TabsContent value="split">
-                      <ErrorBoundary><SplitPanel pdf={pdf} /></ErrorBoundary>
-                    </TabsContent>
-                    <TabsContent value="pages">
-                      <ErrorBoundary><PageOperations pdf={pdf} /></ErrorBoundary>
-                    </TabsContent>
-                    <TabsContent value="compress">
-                      <ErrorBoundary><CompressPanel pdf={pdf} /></ErrorBoundary>
-                    </TabsContent>
-                    <TabsContent value="encrypt">
-                      <ErrorBoundary><EncryptPanel pdf={pdf} /></ErrorBoundary>
-                    </TabsContent>
-                    <TabsContent value="watermark">
-                      <ErrorBoundary><WatermarkPanel pdf={pdf} /></ErrorBoundary>
-                    </TabsContent>
-                    <TabsContent value="pagenum">
-                      <ErrorBoundary><PageNumbersPanel pdf={pdf} /></ErrorBoundary>
-                    </TabsContent>
-                    <TabsContent value="convert">
-                      <ErrorBoundary><ConvertPanel pdf={pdf} /></ErrorBoundary>
-                    </TabsContent>
-                    <TabsContent value="img2pdf">
-                      <ErrorBoundary><ImagesToPdfPanel pdf={pdf} /></ErrorBoundary>
-                    </TabsContent>
-                    <TabsContent value="office">
-                      <ErrorBoundary><ConvertOfficePanel pdf={pdf} /></ErrorBoundary>
-                    </TabsContent>
-                    <TabsContent value="ocr">
-                      <ErrorBoundary><OcrPanel pdf={pdf} /></ErrorBoundary>
-                    </TabsContent>
-                    <TabsContent value="edit">
-                      <ErrorBoundary><EditPanel pdf={pdf} /></ErrorBoundary>
-                    </TabsContent>
-                    <TabsContent value="sign">
-                      <ErrorBoundary><SignaturePanel pdf={pdf} /></ErrorBoundary>
-                    </TabsContent>
+                    <Suspense
+                      fallback={
+                        <div className="flex items-center justify-center p-8 text-muted-foreground text-sm">
+                          加载中...
+                        </div>
+                      }
+                    >
+                      <TabsContent value="merge">
+                        <ErrorBoundary>
+                          <MergePanel pdf={pdf} />
+                        </ErrorBoundary>
+                      </TabsContent>
+                      <TabsContent value="split">
+                        <ErrorBoundary>
+                          <SplitPanel pdf={pdf} />
+                        </ErrorBoundary>
+                      </TabsContent>
+                      <TabsContent value="pages">
+                        <ErrorBoundary>
+                          <PageOperations pdf={pdf} />
+                        </ErrorBoundary>
+                      </TabsContent>
+                      <TabsContent value="compress">
+                        <ErrorBoundary>
+                          <CompressPanel pdf={pdf} />
+                        </ErrorBoundary>
+                      </TabsContent>
+                      <TabsContent value="encrypt">
+                        <ErrorBoundary>
+                          <EncryptPanel pdf={pdf} />
+                        </ErrorBoundary>
+                      </TabsContent>
+                      <TabsContent value="watermark">
+                        <ErrorBoundary>
+                          <WatermarkPanel pdf={pdf} />
+                        </ErrorBoundary>
+                      </TabsContent>
+                      <TabsContent value="pagenum">
+                        <ErrorBoundary>
+                          <PageNumbersPanel pdf={pdf} />
+                        </ErrorBoundary>
+                      </TabsContent>
+                      <TabsContent value="convert">
+                        <ErrorBoundary>
+                          <ConvertPanel pdf={pdf} />
+                        </ErrorBoundary>
+                      </TabsContent>
+                      <TabsContent value="img2pdf">
+                        <ErrorBoundary>
+                          <ImagesToPdfPanel pdf={pdf} />
+                        </ErrorBoundary>
+                      </TabsContent>
+                      <TabsContent value="office">
+                        <ErrorBoundary>
+                          <ConvertOfficePanel pdf={pdf} />
+                        </ErrorBoundary>
+                      </TabsContent>
+                      <TabsContent value="ocr">
+                        <ErrorBoundary>
+                          <OcrPanel pdf={pdf} />
+                        </ErrorBoundary>
+                      </TabsContent>
+                      <TabsContent value="edit">
+                        <ErrorBoundary>
+                          <EditPanel pdf={pdf} />
+                        </ErrorBoundary>
+                      </TabsContent>
+                      <TabsContent value="sign">
+                        <ErrorBoundary>
+                          <SignaturePanel pdf={pdf} />
+                        </ErrorBoundary>
+                      </TabsContent>
                     </Suspense>
                   </Tabs>
                 </motion.div>

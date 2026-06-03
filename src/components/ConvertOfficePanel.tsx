@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { FileText, ArrowRight, Loader2, Upload, CheckSquare, Square } from 'lucide-react'
+import { t, ErrorCode } from '@/lib/i18n'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,35 +10,31 @@ import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import type { UsePDFReturn } from '@/hooks/usePDF'
 import { useFileSelection } from '@/hooks/useFileSelection'
-import { createCancellationToken, CancelledError } from '@/lib/cancellation'
-import type { CancellationToken } from '@/lib/cancellation'
+import { useOperation } from '@/hooks/useOperation'
 
 interface ConvertOfficePanelProps {
   pdf: UsePDFReturn
 }
 
 export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
-  const { selectedFiles, selectedCount, isAllSelected, toggleFile, toggleAll, isSelected } = useFileSelection(pdf.files)
+  const { selectedFiles, selectedCount, isAllSelected, toggleFile, toggleAll, isSelected } =
+    useFileSelection(pdf.files)
   const [direction, setDirection] = useState<'pdfToWord' | 'wordToPdf'>('pdfToWord')
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [cancelToken, setCancelToken] = useState<CancellationToken | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { isProcessing, progress, execute, cancel } = useOperation({
+    errorMessagePrefix: '转换失败',
+    onCancelMessage: '已取消转换',
+  })
 
   const handleWordToPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
 
-    const token = createCancellationToken()
-    setCancelToken(token)
-    setIsProcessing(true)
-    setProgress(0)
-
-    try {
+    const result = await execute(async (onProgress, token) => {
+      const validFiles: File[] = []
       for (let i = 0; i < files.length; i++) {
         token.throwIfCancelled()
         const file = files[i]
-        setProgress(Math.round((i / files.length) * 100))
         const filePath = window.electronAPI.getPathForFile(file)
         if (!filePath) {
           toast.error(`无法获取文件路径：${file.name}`)
@@ -48,65 +45,58 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
           toast.warning(`跳过非Word文件：${file.name}`)
           continue
         }
+        validFiles.push(file)
+        onProgress(Math.round((validFiles.length / files.length) * 100))
+      }
+      let completed = 0
+      for (let i = 0; i < validFiles.length; i++) {
+        token.throwIfCancelled()
+        const file = validFiles[i]
+        const filePath = window.electronAPI.getPathForFile(file)
         await pdf.wordToPdf(
           filePath,
-          p => setProgress(Math.round(((i + p / 100) / files.length) * 100)),
-          token
+          (p) => onProgress(Math.round(((completed + p / 100) / validFiles.length) * 100)),
+          token,
         )
+        completed++
       }
+      return completed
+    })
+    // Word 上传：源是 FileList 而非 PDF 文件 ID，不参与文件互斥锁
+    void undefined
+
+    if (result && result > 0) {
       toast.success('全部转换完成！')
-    } catch (error) {
-      if (error instanceof CancelledError) {
-        toast.info('已取消转换')
-      } else {
-        toast.error(`转换失败：${error instanceof Error ? error.message : String(error)}`)
-      }
-    } finally {
-      setIsProcessing(false)
-      setCancelToken(null)
-      setProgress(0)
-      if (fileInputRef.current) fileInputRef.current.value = ''
     }
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const handlePdfToWord = async () => {
     if (selectedCount === 0) {
-      toast.error('请先选择PDF文件')
+      toast.error(t(ErrorCode.NO_PDF_SELECTED))
       return
     }
 
-    const token = createCancellationToken()
-    setCancelToken(token)
-    setIsProcessing(true)
-    setProgress(0)
+    const result = await execute(
+      async (onProgress, token) => {
+        let completed = 0
+        for (const fileId of selectedFiles) {
+          token.throwIfCancelled()
+          await pdf.pdfToWord(
+            fileId,
+            (p) => onProgress(Math.round(((completed + p / 100) / selectedCount) * 100)),
+            token,
+          )
+          completed++
+        }
+        return completed
+      },
+      { lockFileIds: Array.from(selectedFiles) },
+    )
 
-    try {
-      let completed = 0
-      for (const fileId of selectedFiles) {
-        token.throwIfCancelled()
-        await pdf.pdfToWord(
-          fileId,
-          p => setProgress(Math.round(((completed + p / 100) / selectedCount) * 100)),
-          token
-        )
-        completed++
-      }
+    if (result && result > 0) {
       toast.success('全部转换完成！')
-    } catch (error) {
-      if (error instanceof CancelledError) {
-        toast.info('已取消转换')
-      } else {
-        toast.error(`转换失败：${error instanceof Error ? error.message : String(error)}`)
-      }
-    } finally {
-      setIsProcessing(false)
-      setCancelToken(null)
-      setProgress(0)
     }
-  }
-
-  const handleCancel = () => {
-    cancelToken?.cancel()
   }
 
   return (
@@ -116,9 +106,7 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
           <FileText className="h-5 w-5" />
           格式转换
         </CardTitle>
-        <CardDescription>
-          PDF与Word文档互相转换
-        </CardDescription>
+        <CardDescription>PDF与Word文档互相转换</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
@@ -159,14 +147,20 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
                     <Label>选择文件</Label>
                     <Button variant="ghost" size="sm" onClick={toggleAll} className="h-7 text-xs">
                       {isAllSelected ? (
-                        <><CheckSquare className="mr-1 h-3.5 w-3.5" />取消全选</>
+                        <>
+                          <CheckSquare className="mr-1 h-3.5 w-3.5" />
+                          取消全选
+                        </>
                       ) : (
-                        <><Square className="mr-1 h-3.5 w-3.5" />全选</>
+                        <>
+                          <Square className="mr-1 h-3.5 w-3.5" />
+                          全选
+                        </>
                       )}
                     </Button>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {pdf.files.map(file => (
+                    {pdf.files.map((file) => (
                       <Badge
                         key={file.id}
                         variant={isSelected(file.id) ? 'default' : 'outline'}
@@ -188,9 +182,15 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
                   disabled={isProcessing || selectedCount === 0}
                 >
                   {isProcessing ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />转换中...</>
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      转换中...
+                    </>
                   ) : (
-                    <><FileText className="mr-2 h-4 w-4" />开始转换</>
+                    <>
+                      <FileText className="mr-2 h-4 w-4" />
+                      开始转换
+                    </>
                   )}
                 </Button>
               </>
@@ -216,9 +216,15 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
                 disabled={isProcessing}
               >
                 {isProcessing ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />转换中...</>
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    转换中...
+                  </>
                 ) : (
-                  <><Upload className="mr-2 h-4 w-4" />选择文件</>
+                  <>
+                    <Upload className="mr-2 h-4 w-4" />
+                    选择文件
+                  </>
                 )}
               </Button>
               <input
@@ -240,14 +246,12 @@ export function ConvertOfficePanel({ pdf }: ConvertOfficePanelProps) {
             className="space-y-2"
           >
             <Progress value={progress} />
-            <p className="text-sm text-muted-foreground text-center">
-              正在转换... {progress}%
-            </p>
+            <p className="text-sm text-muted-foreground text-center">正在转换... {progress}%</p>
           </motion.div>
         )}
 
         {isProcessing && (
-          <Button variant="destructive" className="w-full" onClick={handleCancel}>
+          <Button variant="destructive" className="w-full" onClick={cancel}>
             取消
           </Button>
         )}

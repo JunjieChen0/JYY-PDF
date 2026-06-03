@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Pen, Upload, Loader2, RotateCcw, Check } from 'lucide-react'
+import { Pen, Upload, Loader2, RotateCcw, Check, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,9 +8,12 @@ import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import type { UsePDFReturn } from '@/hooks/usePDF'
-import { createCancellationToken, CancelledError } from '@/lib/cancellation'
+import { useOperation } from '@/hooks/useOperation'
 import { getPdfjsLib, PDFJS_CONFIG } from '@/lib/pdfjs-config'
 import { logger } from '@/lib/logger'
+import * as pdfDataStore from '@/lib/pdf-data-store'
+import { getRequiredPdfData } from '@/lib/pdf-helpers'
+import { t, ErrorCode } from '@/lib/i18n'
 
 interface SignaturePanelProps {
   pdf: UsePDFReturn
@@ -21,8 +24,10 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
   const [pageIndex, setPageIndex] = useState(0)
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
   const [isDrawing, setIsDrawing] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
+  const { isProcessing, progress, execute, cancel } = useOperation({
+    errorMessagePrefix: '签名失败',
+    onCancelMessage: '操作已取消',
+  })
   const [step, setStep] = useState<'draw' | 'position'>('draw')
   const [signPos, setSignPos] = useState({ x: 300, y: 100 })
   const [pageSize, setPageSize] = useState({ width: 595, height: 842 })
@@ -32,7 +37,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const selectedFileData = pdf.files.find(f => f.id === selectedFile)
+  const selectedFileData = pdf.files.find((f) => f.id === selectedFile)
 
   useEffect(() => {
     if (!selectedFile && pdf.files.length > 0) {
@@ -48,33 +53,40 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
 
   useEffect(() => {
     if (!selectedFile) return
-    const file = pdf.files.find(f => f.id === selectedFile)
+    const file = pdf.files.find((f) => f.id === selectedFile)
     if (!file) return
     let cancelled = false
     const pdfjsLib = getPdfjsLib()
-    pdfjsLib.getDocument({ data: new Uint8Array(file.data), ...PDFJS_CONFIG }).promise.then(async pdfDoc => {
-      try {
-        const page = await pdfDoc.getPage(pageIndex + 1)
-        const viewport = page.getViewport({ scale: 1 })
-        if (!cancelled) {
-          setPageSize({ width: viewport.width, height: viewport.height })
-          const thumb = await pdf.getPageThumbnail(selectedFile, pageIndex, 800)
-          if (!cancelled) setPageThumbnail(thumb)
+    const fileData = getRequiredPdfData(file.id, pdfDataStore)
+    pdfjsLib
+      .getDocument({ data: new Uint8Array(fileData), ...PDFJS_CONFIG })
+      .promise.then(async (pdfDoc) => {
+        try {
+          const page = await pdfDoc.getPage(pageIndex + 1)
+          const viewport = page.getViewport({ scale: 1 })
+          if (!cancelled) {
+            setPageSize({ width: viewport.width, height: viewport.height })
+            const thumb = await pdf.getPageThumbnail(selectedFile, pageIndex, 800)
+            if (!cancelled) setPageThumbnail(thumb)
+          }
+        } finally {
+          pdfDoc.destroy()
         }
-      } finally {
-        pdfDoc.destroy()
-      }
-    }).catch((err) => {
-      if (cancelled) return
-      const msg = err instanceof Error ? err.message : String(err)
-      if (msg.includes('password') || msg.includes('encrypt')) {
-        toast.error('PDF文件已加密，无法预览')
-      } else {
-        logger.warn(`PDF预览加载失败(${file.name}): ${msg}`)
-      }
-    })
-    return () => { cancelled = true }
-  }, [selectedFile, pdf.files, pageIndex, pdf])
+      })
+      .catch((err) => {
+        if (cancelled) return
+        const msg = err instanceof Error ? err.message : String(err)
+        if (msg.includes('password') || msg.includes('encrypt')) {
+          toast.error(t(ErrorCode.PDF_ENCRYPTED_CANNOT_PREVIEW))
+        } else {
+          logger.warn(`PDF预览加载失败(${file.name}): ${msg}`)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFile, pdf.files, pageIndex, pdf.getPageThumbnail])
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current
@@ -88,49 +100,58 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
     if (ctx) ctx.scale(dpr, dpr)
   }, [step])
 
-  const getCanvasPos = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current!
-    const rect = canvas.getBoundingClientRect()
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-    return {
-      x: clientX - rect.left,
-      y: clientY - rect.top,
-    }
-  }, [])
+  const getCanvasPos = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+      const canvas = canvasRef.current!
+      const rect = canvas.getBoundingClientRect()
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top,
+      }
+    },
+    [],
+  )
 
-  const startDraw = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDrawing(true)
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    const { x, y } = getCanvasPos(e)
-    ctx.beginPath()
-    ctx.moveTo(x, y)
-  }, [getCanvasPos])
+  const startDraw = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setIsDrawing(true)
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      const { x, y } = getCanvasPos(e)
+      ctx.beginPath()
+      ctx.moveTo(x, y)
+    },
+    [getCanvasPos],
+  )
 
   const lastDrawCallRef = useRef(0)
-  const draw = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return
-    const now = Date.now()
-    if (now - lastDrawCallRef.current < 16) return
-    lastDrawCallRef.current = now
-    e.preventDefault()
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    const { x, y } = getCanvasPos(e)
-    ctx.lineWidth = 2.5
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    ctx.strokeStyle = '#1a1a2e'
-    ctx.lineTo(x, y)
-    ctx.stroke()
-  }, [isDrawing, getCanvasPos])
+  const draw = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+      if (!isDrawing) return
+      const now = Date.now()
+      if (now - lastDrawCallRef.current < 16) return
+      lastDrawCallRef.current = now
+      e.preventDefault()
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      const { x, y } = getCanvasPos(e)
+      ctx.lineWidth = 2.5
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      ctx.strokeStyle = '#1a1a2e'
+      ctx.lineTo(x, y)
+      ctx.stroke()
+    },
+    [isDrawing, getCanvasPos],
+  )
 
   const endDraw = useCallback(() => setIsDrawing(false), [])
 
@@ -146,18 +167,18 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
   const confirmSignature = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) {
-      toast.error('签名画布未就绪')
+      toast.error(t(ErrorCode.SIGNATURE_CANVAS_NOT_READY))
       return
     }
     const ctx = canvas.getContext('2d')
     if (!ctx) {
-      toast.error('签名画布上下文不可用')
+      toast.error(t(ErrorCode.SIGNATURE_CONTEXT_UNAVAILABLE))
       return
     }
     const pixelData = ctx.getImageData(0, 0, canvas.width, canvas.height).data
-    const hasContent = pixelData.some(pixel => pixel !== 0)
+    const hasContent = pixelData.some((pixel) => pixel !== 0)
     if (!hasContent) {
-      toast.error('请先绘制签名')
+      toast.error(t(ErrorCode.SIGNATURE_NOT_DRAWN))
       return
     }
     const dataUrl = canvas.toDataURL('image/png')
@@ -170,12 +191,12 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
     if (!file) return
     // 校验图片格式
     if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) {
-      toast.error('仅支持PNG/JPG格式的签名图片')
+      toast.error(t(ErrorCode.SIGNATURE_FORMAT_PNG_JPG))
       return
     }
     // 校验文件大小不超过5MB
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('签名图片大小不能超过5MB')
+      toast.error(t(ErrorCode.SIGNATURE_IMAGE_TOO_LARGE))
       return
     }
     // 校验文件魔数，防止恶意文件伪装成图片
@@ -188,7 +209,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
       }
       // PNG: 89504e47, JPG: ffd8ffe0/ffd8ffe1/ffd8ffee
       if (!header.startsWith('89504e47') && !header.startsWith('ffd8ff')) {
-        toast.error('文件不是有效的PNG/JPG图片，请重新选择')
+        toast.error(t(ErrorCode.SIGNATURE_INVALID_IMAGE))
         return
       }
       // 加载图片并校验是否能正常解码
@@ -198,33 +219,39 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
         setStep('position')
       }
       img.onerror = () => {
-        toast.error('图片解码失败，请选择有效的图片文件')
+        toast.error(t(ErrorCode.SIGNATURE_DECODE_FAILED))
       }
       img.src = reader.result as string
     }
     reader.readAsArrayBuffer(file)
   }, [])
 
-  const handlePageClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (step !== 'position' || isDragging) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const relX = (e.clientX - rect.left) / rect.width
-    const relY = (e.clientY - rect.top) / rect.height
-    setSignPos({ x: relX * pageSize.width, y: (1 - relY) * pageSize.height })
-  }, [step, pageSize, isDragging])
+  const handlePageClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (step !== 'position' || isDragging) return
+      const rect = e.currentTarget.getBoundingClientRect()
+      const relX = (e.clientX - rect.left) / rect.width
+      const relY = (e.clientY - rect.top) / rect.height
+      setSignPos({ x: relX * pageSize.width, y: (1 - relY) * pageSize.height })
+    },
+    [step, pageSize, isDragging],
+  )
 
   const handleSignMouseDown = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     setIsDragging(true)
   }, [])
 
-  const handlePageMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isDragging || step !== 'position') return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const relX = (e.clientX - rect.left) / rect.width
-    const relY = (e.clientY - rect.top) / rect.height
-    setSignPos({ x: relX * pageSize.width, y: (1 - relY) * pageSize.height })
-  }, [isDragging, step, pageSize])
+  const handlePageMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!isDragging || step !== 'position') return
+      const rect = e.currentTarget.getBoundingClientRect()
+      const relX = (e.clientX - rect.left) / rect.width
+      const relY = (e.clientY - rect.top) / rect.height
+      setSignPos({ x: relX * pageSize.width, y: (1 - relY) * pageSize.height })
+    },
+    [isDragging, step, pageSize],
+  )
 
   const handlePageMouseUp = useCallback(() => {
     setIsDragging(false)
@@ -232,53 +259,56 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
 
   const handleSign = useCallback(async () => {
     if (!selectedFile || !signatureDataUrl) return
-    const token = createCancellationToken()
-    setIsProcessing(true)
-    setProgress(0)
-    try {
-      const signHeight = signWidth * 0.5
-      // 校验签名尺寸范围
-      if (signWidth < 50 || signWidth > Math.min(pageSize.width, 800)) {
-        toast.error('签名宽度需在50px到页面宽度之间')
-        setIsProcessing(false)
-        return
-      }
-      if (signHeight < 25 || signHeight > Math.min(pageSize.height, 400)) {
-        toast.error('签名高度需在25px到页面高度之间')
-        setIsProcessing(false)
-        return
-      }
-      // 校验签名位置边界
-      if (signPos.x < 0 || signPos.y < 0 || 
-          signPos.x + signWidth > pageSize.width || 
-          signPos.y + signHeight > pageSize.height) {
-        toast.error('签名超出页面范围，请调整位置或缩小签名尺寸')
-        setIsProcessing(false)
-        return
-      }
-      const outputPath = await pdf.addSignature(
-        selectedFile,
-        signatureDataUrl,
-        { pageIndex, x: signPos.x, y: signPos.y, width: signWidth, height: signHeight },
-        p => setProgress(p),
-        token
-      )
-      if (outputPath) {
-        toast.success('签名完成！')
-        setStep('draw')
-        setSignatureDataUrl(null)
-        clearCanvas()
-      }
-    } catch (error) {
-      if (error instanceof CancelledError) {
-        toast.info('操作已取消')
-      } else {
-        toast.error(`签名失败：${error instanceof Error ? error.message : String(error)}`)
-      }
-    } finally {
-      setIsProcessing(false)
+    const signHeight = signWidth * 0.5
+    if (signWidth < 50 || signWidth > Math.min(pageSize.width, 800)) {
+      toast.error(t(ErrorCode.SIGNATURE_WIDTH_OUT_OF_RANGE))
+      return
     }
-  }, [selectedFile, signatureDataUrl, pageIndex, signPos, signWidth, pageSize.width, pageSize.height, pdf, clearCanvas])
+    if (signHeight < 25 || signHeight > Math.min(pageSize.height, 400)) {
+      toast.error(t(ErrorCode.SIGNATURE_HEIGHT_OUT_OF_RANGE))
+      return
+    }
+    if (
+      signPos.x < 0 ||
+      signPos.y < 0 ||
+      signPos.x + signWidth > pageSize.width ||
+      signPos.y + signHeight > pageSize.height
+    ) {
+      toast.error(t(ErrorCode.SIGNATURE_OUT_OF_PAGE))
+      return
+    }
+
+    const outputPath = await execute(
+      async (onProgress, token) => {
+        return pdf.addSignature(
+          selectedFile,
+          signatureDataUrl,
+          { pageIndex, x: signPos.x, y: signPos.y, width: signWidth, height: signHeight },
+          onProgress,
+          token,
+        )
+      },
+      { lockFileIds: selectedFile ? [selectedFile] : undefined },
+    )
+
+    if (outputPath) {
+      toast.success('签名完成！')
+      setStep('draw')
+      setSignatureDataUrl(null)
+      clearCanvas()
+    }
+  }, [
+    selectedFile,
+    signatureDataUrl,
+    pageIndex,
+    signPos,
+    signWidth,
+    pageSize.width,
+    pageSize.height,
+    pdf,
+    clearCanvas,
+    execute,
+  ])
 
   return (
     <Card>
@@ -287,9 +317,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
           <Pen className="h-5 w-5" />
           电子签名
         </CardTitle>
-        <CardDescription>
-          手绘签名或上传签名图片，嵌入到PDF文档中
-        </CardDescription>
+        <CardDescription>手绘签名或上传签名图片，嵌入到PDF文档中</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {pdf.files.length === 0 ? (
@@ -299,7 +327,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
             <div className="space-y-2">
               <Label>选择文件</Label>
               <div className="flex flex-wrap gap-2">
-                {pdf.files.map(file => (
+                {pdf.files.map((file) => (
                   <Badge
                     key={file.id}
                     variant={selectedFile === file.id ? 'default' : 'outline'}
@@ -365,11 +393,7 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
                     <Check className="mr-1 h-3 w-3" />
                     确认签名
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
                     <Upload className="mr-1 h-3 w-3" />
                     上传图片
                   </Button>
@@ -400,13 +424,15 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
                         min="80"
                         max="300"
                         value={signWidth}
-                        onChange={e => setSignWidth(Number(e.target.value))}
+                        onChange={(e) => setSignWidth(Number(e.target.value))}
                         className="w-24"
                       />
                       <span className="text-xs text-muted-foreground w-10">{signWidth}px</span>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">💡 直接拖拽签名可以调整位置，拖动滑块调整大小</p>
+                  <p className="text-xs text-muted-foreground">
+                    💡 直接拖拽签名可以调整位置，拖动滑块调整大小
+                  </p>
                 </div>
                 <div
                   className="relative border rounded-lg overflow-hidden cursor-crosshair bg-white"
@@ -446,16 +472,35 @@ export function SignaturePanel({ pdf }: SignaturePanelProps) {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => { setStep('draw'); setSignatureDataUrl(null) }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setStep('draw')
+                      setSignatureDataUrl(null)
+                    }}
+                  >
                     重新签名
                   </Button>
                   <Button size="sm" onClick={handleSign} disabled={isProcessing}>
                     {isProcessing ? (
-                      <><Loader2 className="mr-1 h-3 w-3 animate-spin" />处理中...</>
+                      <>
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        处理中...
+                      </>
                     ) : (
-                      <><Check className="mr-1 h-3 w-3" />确认签署</>
+                      <>
+                        <Check className="mr-1 h-3 w-3" />
+                        确认签署
+                      </>
                     )}
                   </Button>
+                  {isProcessing && (
+                    <Button variant="outline" size="sm" onClick={cancel}>
+                      <XCircle className="mr-1 h-3 w-3" />
+                      取消
+                    </Button>
+                  )}
                 </div>
               </motion.div>
             )}

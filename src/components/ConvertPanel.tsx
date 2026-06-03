@@ -1,14 +1,34 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { ImageIcon, FileText as TextIcon, Loader2, XCircle, CheckSquare, Square } from 'lucide-react'
+import {
+  ImageIcon,
+  FileText as TextIcon,
+  Loader2,
+  XCircle,
+  CheckSquare,
+  Square,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useOperation } from '@/hooks/useOperation'
 import { useFileSelection } from '@/hooks/useFileSelection'
 import type { UsePDFReturn } from '@/hooks/usePDF'
@@ -18,7 +38,8 @@ interface ConvertPanelProps {
 }
 
 export function ConvertPanel({ pdf }: ConvertPanelProps) {
-  const { selectedFiles, selectedCount, isAllSelected, toggleFile, toggleAll, isSelected } = useFileSelection(pdf.files)
+  const { selectedFiles, selectedCount, isAllSelected, toggleFile, toggleAll, isSelected } =
+    useFileSelection(pdf.files)
   const [convertType, setConvertType] = useState<'image' | 'text'>('image')
   const [imageFormat, setImageFormat] = useState<'png' | 'jpg'>('png')
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -33,27 +54,35 @@ export function ConvertPanel({ pdf }: ConvertPanelProps) {
 
     const fileIds = Array.from(selectedFiles)
 
-    const result = await execute(async (onProgress, token) => {
-      let successCount = 0
-      for (let i = 0; i < fileIds.length; i++) {
-        token.throwIfCancelled()
-        setCurrentFileIndex(i)
+    const result = await execute(
+      async (onProgress, token) => {
+        let successCount = 0
+        for (let i = 0; i < fileIds.length; i++) {
+          token.throwIfCancelled()
+          setCurrentFileIndex(i)
 
-        const fileProgress = (p: number) => {
-          const overall = Math.round(((i / fileIds.length) * 100) + (p / fileIds.length))
-          onProgress(overall)
-        }
+          const fileProgress = (p: number) => {
+            const overall = Math.round((i / fileIds.length) * 100 + p / fileIds.length)
+            onProgress(overall)
+          }
 
-        if (convertType === 'text') {
-          const outputPath = await pdf.convertToText(fileIds[i], fileProgress, token)
-          if (outputPath) successCount++
-        } else {
-          const outputPath = await pdf.convertToImages(fileIds[i], imageFormat, fileProgress, token)
-          if (outputPath) successCount++
+          if (convertType === 'text') {
+            const outputPath = await pdf.convertToText(fileIds[i], fileProgress, token)
+            if (outputPath) successCount++
+          } else {
+            const outputPath = await pdf.convertToImages(
+              fileIds[i],
+              imageFormat,
+              fileProgress,
+              token,
+            )
+            if (outputPath) successCount++
+          }
         }
-      }
-      return successCount
-    })
+        return successCount
+      },
+      { lockFileIds: fileIds },
+    )
 
     setCurrentFileIndex(0)
 
@@ -82,9 +111,7 @@ export function ConvertPanel({ pdf }: ConvertPanelProps) {
           <ImageIcon className="h-5 w-5" />
           格式转换
         </CardTitle>
-        <CardDescription>
-          将PDF转换为图片或文本
-        </CardDescription>
+        <CardDescription>将PDF转换为图片或文本</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {pdf.files.length === 0 ? (
@@ -94,12 +121,7 @@ export function ConvertPanel({ pdf }: ConvertPanelProps) {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium">选择文件</label>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleAll}
-                  className="h-7 text-xs"
-                >
+                <Button variant="ghost" size="sm" onClick={toggleAll} className="h-7 text-xs">
                   {isAllSelected ? (
                     <>
                       <CheckSquare className="mr-1 h-3.5 w-3.5" />
@@ -114,7 +136,7 @@ export function ConvertPanel({ pdf }: ConvertPanelProps) {
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {pdf.files.map(file => (
+                {pdf.files.map((file) => (
                   <Badge
                     key={file.id}
                     variant={isSelected(file.id) ? 'default' : 'outline'}
@@ -126,9 +148,7 @@ export function ConvertPanel({ pdf }: ConvertPanelProps) {
                 ))}
               </div>
               {selectedCount > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  已选择 {selectedCount} 个文件
-                </p>
+                <p className="text-xs text-muted-foreground">已选择 {selectedCount} 个文件</p>
               )}
             </div>
 
@@ -162,7 +182,10 @@ export function ConvertPanel({ pdf }: ConvertPanelProps) {
               {convertType === 'image' && (
                 <div className="space-y-2">
                   <Label>图片格式</Label>
-                  <Select value={imageFormat} onValueChange={v => setImageFormat(v as 'png' | 'jpg')}>
+                  <Select
+                    value={imageFormat}
+                    onValueChange={(v) => setImageFormat(v as 'png' | 'jpg')}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -179,8 +202,7 @@ export function ConvertPanel({ pdf }: ConvertPanelProps) {
                 <div className="text-sm">
                   {convertType === 'image'
                     ? `将把PDF转换为 ${imageFormat.toUpperCase()} 图片，每页一张`
-                    : `将提取PDF中的文字内容，生成纯文本文件`
-                  }
+                    : `将提取PDF中的文字内容，生成纯文本文件`}
                 </div>
               </div>
 
@@ -217,16 +239,15 @@ export function ConvertPanel({ pdf }: ConvertPanelProps) {
                   <DialogHeader>
                     <DialogTitle>确认转换</DialogTitle>
                     <DialogDescription>
-                      将把 {selectedCount} 个PDF文件转换为 {imageFormat.toUpperCase()} 图片。确认继续？
+                      将把 {selectedCount} 个PDF文件转换为 {imageFormat.toUpperCase()}{' '}
+                      图片。确认继续？
                     </DialogDescription>
                   </DialogHeader>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
                       取消
                     </Button>
-                    <Button onClick={confirmImageConvert}>
-                      确认转换
-                    </Button>
+                    <Button onClick={confirmImageConvert}>确认转换</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -240,7 +261,9 @@ export function ConvertPanel({ pdf }: ConvertPanelProps) {
               >
                 <Progress value={progress} />
                 <p className="text-sm text-muted-foreground text-center">
-                  正在转换... {selectedCount > 1 ? `(${currentFileIndex + 1}/${selectedCount})` : ''} {progress}%
+                  正在转换...{' '}
+                  {selectedCount > 1 ? `(${currentFileIndex + 1}/${selectedCount})` : ''} {progress}
+                  %
                 </p>
               </motion.div>
             )}

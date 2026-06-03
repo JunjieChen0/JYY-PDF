@@ -1,0 +1,9 @@
+{
+  "src/**/*.{ts,tsx}": [
+    "eslint --report-unused-disable-directives --max-warnings 0",
+    "prettier --write"
+  ],
+  "electron/**/*.cjs": [
+    "prettier --write"
+  ]
+}

@@ -25,21 +25,24 @@ export function PageOperations({ pdf }: PageOperationsProps) {
     errorMessagePrefix: '操作失败',
   })
 
-  const selectedFileData = pdf.files.find(f => f.id === selectedFile)
+  const selectedFileData = pdf.files.find((f) => f.id === selectedFile)
 
   const handleOperation = async () => {
     if (!selectedFile || !pageRange) return
 
-    const result = await execute(async (onProgress, token) => {
-      switch (operation) {
-        case 'rotate':
-          return pdf.rotatePages(selectedFile, pageRange, rotateAngle, onProgress, token)
-        case 'delete':
-          return pdf.deletePages(selectedFile, pageRange, onProgress, token)
-        case 'extract':
-          return pdf.extractPages(selectedFile, pageRange, onProgress, token)
-      }
-    })
+    const result = await execute(
+      async (onProgress, token) => {
+        switch (operation) {
+          case 'rotate':
+            return pdf.rotatePages(selectedFile, pageRange, rotateAngle, onProgress, token)
+          case 'delete':
+            return pdf.deletePages(selectedFile, pageRange, onProgress, token)
+          case 'extract':
+            return pdf.extractPages(selectedFile, pageRange, onProgress, token)
+        }
+      },
+      { lockFileIds: selectedFile ? [selectedFile] : undefined },
+    )
 
     if (result) {
       const opNames = { rotate: '旋转', delete: '删除', extract: '提取' }
@@ -60,9 +63,7 @@ export function PageOperations({ pdf }: PageOperationsProps) {
           <RotateCw className="h-5 w-5" />
           页面操作
         </CardTitle>
-        <CardDescription>
-          旋转、删除或提取 PDF 中的特定页面。
-        </CardDescription>
+        <CardDescription>旋转、删除或提取 PDF 中的特定页面。</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {pdf.files.length === 0 ? (
@@ -72,7 +73,7 @@ export function PageOperations({ pdf }: PageOperationsProps) {
             <div className="space-y-2">
               <label className="text-sm font-medium">选择文件</label>
               <div className="flex flex-wrap gap-2">
-                {pdf.files.map(file => (
+                {pdf.files.map((file) => (
                   <Badge
                     key={file.id}
                     variant={selectedFile === file.id ? 'default' : 'outline'}
@@ -101,7 +102,7 @@ export function PageOperations({ pdf }: PageOperationsProps) {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">操作类型</label>
                   <div className="flex gap-2">
-                    {operations.map(op => (
+                    {operations.map((op) => (
                       <Button
                         key={op.id}
                         variant={operation === op.id ? 'default' : 'outline'}
@@ -119,7 +120,7 @@ export function PageOperations({ pdf }: PageOperationsProps) {
                   <div className="space-y-2">
                     <label className="text-sm font-medium">旋转角度</label>
                     <div className="flex gap-2">
-                      {[90, 180, 270].map(angle => (
+                      {[90, 180, 270].map((angle) => (
                         <Button
                           key={angle}
                           variant={rotateAngle === angle ? 'default' : 'outline'}
@@ -135,7 +136,11 @@ export function PageOperations({ pdf }: PageOperationsProps) {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">
-                    {operation === 'rotate' ? '旋转页面' : operation === 'delete' ? '删除页面' : '提取页面'}
+                    {operation === 'rotate'
+                      ? '旋转页面'
+                      : operation === 'delete'
+                        ? '删除页面'
+                        : '提取页面'}
                   </label>
                   <input
                     type="text"
@@ -158,9 +163,7 @@ export function PageOperations({ pdf }: PageOperationsProps) {
                 className="space-y-2"
               >
                 <Progress value={progress} />
-                <p className="text-sm text-muted-foreground text-center">
-                  正在处理... {progress}%
-                </p>
+                <p className="text-sm text-muted-foreground text-center">正在处理... {progress}%</p>
               </motion.div>
             )}
 
@@ -177,9 +180,13 @@ export function PageOperations({ pdf }: PageOperationsProps) {
                   </>
                 ) : (
                   <>
-                    {operations.find(o => o.id === operation)?.icon}
+                    {operations.find((o) => o.id === operation)?.icon}
                     <span className="ml-2">
-                      {operation === 'rotate' ? '旋转页面' : operation === 'delete' ? '删除页面' : '提取页面'}
+                      {operation === 'rotate'
+                        ? '旋转页面'
+                        : operation === 'delete'
+                          ? '删除页面'
+                          : '提取页面'}
                     </span>
                   </>
                 )}

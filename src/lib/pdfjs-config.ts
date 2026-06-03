@@ -6,7 +6,7 @@ export function initPdfjsWorker() {
   if (workerInitialized) return
   pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
     'pdfjs-dist/build/pdf.worker.min.mjs',
-    import.meta.url
+    import.meta.url,
   ).toString()
   workerInitialized = true
 }
@@ -16,8 +16,10 @@ export function getPdfjsLib() {
   return pdfjsLib
 }
 
+const pdfjsVersion = (pdfjsLib as unknown as { version?: string }).version || '4.0.379'
+
 export const PDFJS_CONFIG = {
-  cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/cmaps/',
+  cMapUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsVersion}/cmaps/`,
   cMapPacked: true,
-  standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/standard_fonts/',
+  standardFontDataUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsVersion}/standard_fonts/`,
 }

@@ -1,6 +1,16 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Edit3, Type, Square, Circle, Highlighter, Loader2, Trash2, Plus } from 'lucide-react'
+import {
+  Edit3,
+  Type,
+  Square,
+  Circle,
+  Highlighter,
+  Loader2,
+  Trash2,
+  Plus,
+  XCircle,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,9 +20,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { UsePDFReturn } from '@/hooks/usePDF'
 import type { Annotation } from '@/hooks/types'
-import { createCancellationToken, CancelledError } from '@/lib/cancellation'
+import { useOperation } from '@/hooks/useOperation'
 import { getPdfjsLib, PDFJS_CONFIG } from '@/lib/pdfjs-config'
 import { logger } from '@/lib/logger'
+import * as pdfDataStore from '@/lib/pdf-data-store'
+import { getRequiredPdfData } from '@/lib/pdf-helpers'
+import { t, ErrorCode } from '@/lib/i18n'
 
 interface EditPanelProps {
   pdf: UsePDFReturn
@@ -33,10 +46,12 @@ export function EditPanel({ pdf }: EditPanelProps) {
   const [color, setColor] = useState('#ff0000')
   const [fontSize, setFontSize] = useState(16)
   const [annotations, setAnnotations] = useState<Annotation[]>([])
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
+  const { isProcessing, progress, execute, cancel } = useOperation({
+    errorMessagePrefix: '编辑失败',
+    onCancelMessage: '操作已取消',
+  })
 
-  const selectedFileData = pdf.files.find(f => f.id === selectedFile)
+  const selectedFileData = pdf.files.find((f) => f.id === selectedFile)
 
   useEffect(() => {
     if (!selectedFile && pdf.files.length > 0) {
@@ -54,67 +69,59 @@ export function EditPanel({ pdf }: EditPanelProps) {
     if (!selectedFileData) return
     try {
       const pdfjsLib = getPdfjsLib()
-      const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(selectedFileData.data), ...PDFJS_CONFIG }).promise
+      const fileData = getRequiredPdfData(selectedFileData.id, pdfDataStore)
+      const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(fileData), ...PDFJS_CONFIG })
+        .promise
       try {
         const page = await pdfDoc.getPage(pageIndex + 1)
         const { width, height } = page.getViewport({ scale: 1 })
-        
+
         const centerX = width / 2 - 50
         const centerY = height / 2 - 40
         const base = { pageIndex, color, x: centerX, y: centerY }
-        const ann: Annotation = tool === 'text'
-          ? { ...base, type: 'text', text, fontSize }
-          : tool === 'highlight'
-          ? { ...base, type: 'highlight', width: 150, height: 20, opacity: 0.3 }
-          : { ...base, type: tool, width: 100, height: 80 }
-        setAnnotations(prev => [...prev, ann])
+        const ann: Annotation =
+          tool === 'text'
+            ? { ...base, type: 'text', text, fontSize }
+            : tool === 'highlight'
+              ? { ...base, type: 'highlight', width: 150, height: 20, opacity: 0.3 }
+              : { ...base, type: tool, width: 100, height: 80 }
+        setAnnotations((prev) => [...prev, ann])
       } finally {
         pdfDoc.destroy()
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       if (msg.includes('password') || msg.includes('encrypt')) {
-        toast.error('PDF文件已加密，无法编辑')
+        toast.error(t(ErrorCode.PDF_ENCRYPTED_CANNOT_EDIT))
       } else {
         logger.warn(`编辑面板页面加载失败: ${msg}`)
-        toast.error('获取页面尺寸失败，请检查PDF是否有效')
+        toast.error(t(ErrorCode.PAGE_SIZE_FETCH_FAILED))
       }
     }
   }
 
   const removeAnnotation = (index: number) => {
-    setAnnotations(prev => prev.filter((_, i) => i !== index))
+    setAnnotations((prev) => prev.filter((_, i) => i !== index))
   }
 
   const clearAnnotations = () => setAnnotations([])
 
   const handleSave = async () => {
     if (!selectedFile || annotations.length === 0) {
-      toast.error('请先添加标注')
+      toast.error(t(ErrorCode.ANNOTATION_NOT_ADDED))
       return
     }
-    const token = createCancellationToken()
-    setIsProcessing(true)
-    setProgress(0)
-    try {
-      const outputPath = await pdf.addAnnotation(
-        selectedFile,
-        annotations,
-        p => setProgress(p),
-        token
-      )
-      if (outputPath) {
-        toast.success('编辑保存成功！')
-        setAnnotations([])
-      }
-    } catch (error) {
-      if (error instanceof CancelledError) {
-        toast.info('操作已取消')
-      } else {
-        toast.error(`保存失败：${error instanceof Error ? error.message : String(error)}`)
-      }
-    } finally {
-      setIsProcessing(false)
+
+    const outputPath = await execute(
+      async (onProgress, token) => {
+        return pdf.addAnnotation(selectedFile, annotations, onProgress, token)
+      },
+      { lockFileIds: selectedFile ? [selectedFile] : undefined },
+    )
+
+    if (outputPath) {
+      toast.success('编辑保存成功！')
+      setAnnotations([])
     }
   }
 
@@ -125,9 +132,7 @@ export function EditPanel({ pdf }: EditPanelProps) {
           <Edit3 className="h-5 w-5" />
           PDF编辑
         </CardTitle>
-        <CardDescription>
-          在PDF上添加文字、矩形、圆形、高亮等标注
-        </CardDescription>
+        <CardDescription>在PDF上添加文字、矩形、圆形、高亮等标注</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {pdf.files.length === 0 ? (
@@ -137,7 +142,7 @@ export function EditPanel({ pdf }: EditPanelProps) {
             <div className="space-y-2">
               <Label>选择文件</Label>
               <div className="flex flex-wrap gap-2">
-                {pdf.files.map(file => (
+                {pdf.files.map((file) => (
                   <Badge
                     key={file.id}
                     variant={selectedFile === file.id ? 'default' : 'outline'}
@@ -191,7 +196,7 @@ export function EditPanel({ pdf }: EditPanelProps) {
                 <Input
                   id="ann-text"
                   value={text}
-                  onChange={e => setText(e.target.value)}
+                  onChange={(e) => setText(e.target.value)}
                   placeholder="输入标注文字"
                 />
               </div>
@@ -204,7 +209,7 @@ export function EditPanel({ pdf }: EditPanelProps) {
                   <input
                     type="color"
                     value={color}
-                    onChange={e => setColor(e.target.value)}
+                    onChange={(e) => setColor(e.target.value)}
                     className="w-8 h-8 rounded cursor-pointer border"
                   />
                   <span className="text-sm text-muted-foreground">{color}</span>
@@ -216,7 +221,7 @@ export function EditPanel({ pdf }: EditPanelProps) {
                   <Input
                     type="number"
                     value={fontSize}
-                    onChange={e => setFontSize(Number(e.target.value))}
+                    onChange={(e) => setFontSize(Number(e.target.value))}
                     min={8}
                     max={72}
                   />
@@ -240,13 +245,21 @@ export function EditPanel({ pdf }: EditPanelProps) {
                 </div>
                 <div className="max-h-32 overflow-y-auto space-y-1">
                   {annotations.map((ann, i) => (
-                    <div key={i} className="flex items-center justify-between text-sm p-2 bg-muted rounded">
+                    <div
+                      key={i}
+                      className="flex items-center justify-between text-sm p-2 bg-muted rounded"
+                    >
                       <span>
-                        {TOOL_TYPES.find(t => t.value === ann.type)?.label}
+                        {TOOL_TYPES.find((t) => t.value === ann.type)?.label}
                         {ann.text ? `: ${ann.text}` : ''}
                         <span className="text-muted-foreground ml-2">第{ann.pageIndex + 1}页</span>
                       </span>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeAnnotation(i)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => removeAnnotation(i)}
+                      >
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
@@ -261,11 +274,24 @@ export function EditPanel({ pdf }: EditPanelProps) {
               disabled={isProcessing || annotations.length === 0}
             >
               {isProcessing ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />保存中...</>
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  保存中...
+                </>
               ) : (
-                <><Edit3 className="mr-2 h-4 w-4" />保存编辑</>
+                <>
+                  <Edit3 className="mr-2 h-4 w-4" />
+                  保存编辑
+                </>
               )}
             </Button>
+
+            {isProcessing && (
+              <Button variant="outline" onClick={cancel}>
+                <XCircle className="mr-2 h-4 w-4" />
+                取消
+              </Button>
+            )}
 
             {isProcessing && (
               <motion.div

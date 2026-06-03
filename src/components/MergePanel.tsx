@@ -19,9 +19,13 @@ export function MergePanel({ pdf }: MergePanelProps) {
   const handleMerge = async () => {
     if (pdf.files.length < 2) return
 
-    const outputPath = await execute(async (onProgress, token) => {
-      return pdf.mergeFiles(onProgress, token)
-    })
+    const fileIds = pdf.files.map((f) => f.id)
+    const outputPath = await execute(
+      async (onProgress, token) => {
+        return pdf.mergeFiles(onProgress, token)
+      },
+      { lockFileIds: fileIds },
+    )
 
     if (outputPath) {
       toast.success(`合并完成！保存至：${outputPath}`)
@@ -35,16 +39,14 @@ export function MergePanel({ pdf }: MergePanelProps) {
           <Merge className="h-5 w-5" />
           合并 PDF
         </CardTitle>
-        <CardDescription>
-          将多个 PDF 文件合并为一个文件。拖拽文件列表可调整顺序。
-        </CardDescription>
+        <CardDescription>将多个 PDF 文件合并为一个文件。拖拽文件列表可调整顺序。</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <ArrowUpDown className="h-4 w-4" />
           <span>拖拽文件调整合并顺序</span>
         </div>
-        
+
         {isProcessing && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
@@ -52,12 +54,10 @@ export function MergePanel({ pdf }: MergePanelProps) {
             className="space-y-2"
           >
             <Progress value={progress} />
-            <p className="text-sm text-muted-foreground text-center">
-              正在合并... {progress}%
-            </p>
+            <p className="text-sm text-muted-foreground text-center">正在合并... {progress}%</p>
           </motion.div>
         )}
-        
+
         <div className="flex gap-2">
           <Button
             onClick={handleMerge}
