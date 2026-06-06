@@ -8,6 +8,24 @@ import * as pdfDataStore from '@/lib/pdf-data-store'
 
 const OCR_PAGE_TIMEOUT_MS = 60000
 
+/**
+ * 获取本地语言数据路径（如果已下载）
+ */
+function getLocalLangPath(langCode: string): string | null {
+  try {
+    // 在 Electron 环境中，使用 remote 模块访问文件系统
+    if (window.electronAPI) {
+      const langDir = window.electronAPI.getAppPath() + '/public/tesseract/langs'
+      const langPath = `${langDir}/${langCode}.traineddata.gz`
+      // 这里我们返回一个标记，让 Tesseract 知道使用本地文件
+      return langPath
+    }
+  } catch (e) {
+    // 非 Electron 环境或 API 不可用
+  }
+  return null
+}
+
 export function usePDFOCR(files: PDFFile[]) {
   const filesRef = useRef(files)
   filesRef.current = files
@@ -32,11 +50,45 @@ export function usePDFOCR(files: PDFFile[]) {
       let currentPage = 0
 
       const { createWorker } = await import('tesseract.js')
-      const worker = await createWorker(language, 1, {
+      
+      // 检查是否使用本地语言数据
+      const langCodes = language.split('+')
+      const localPaths: Record<string, string> = {}
+      let useLocal = true
+      
+      for (const code of langCodes) {
+        const localPath = getLocalLangPath(code)
+        if (localPath && window.electronAPI?.checkFileExists) {
+          const exists = await window.electronAPI.checkFileExists(localPath)
+          if (exists) {
+            localPaths[code] = localPath
+          } else {
+            useLocal = false
+          }
+        } else {
+          useLocal = false
+        }
+      }
+      
+      // 配置 worker
+      const workerConfig: any = {
         workerPath: './tesseract/worker.min.js',
         corePath: './tesseract/core/',
-        langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data',
         gzip: true,
+      }
+      
+      // 如果使用本地语言数据，设置 langPath 为本地路径
+      if (useLocal && Object.keys(localPaths).length > 0) {
+        // 对于多语言，使用第一个语言的路径作为基础
+        const firstLang = langCodes[0]
+        workerConfig.langPath = `file://${window.electronAPI?.getAppPath()}/public/tesseract/langs/`
+      } else {
+        // 否则使用 CDN
+        workerConfig.langPath = 'https://cdn.jsdelivr.net/npm/@tesseract.js-data'
+      }
+      
+      const worker = await createWorker(language, 1, {
+        ...workerConfig,
         logger: (m: { status: string; progress: number }) => {
           if (m.status === 'recognizing text') {
             const pageProgress = Math.round(((currentPage - 1 + m.progress) / totalPages) * 100)

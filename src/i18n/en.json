@@ -444,9 +444,11 @@
       "deselectAll": "Deselect All",
       "selectedCount": "{{count}} files selected",
       "recognizing": "Recognizing... {{progress}}%",
-      "downloadModelHint": "First use requires downloading language model (~25MB), please wait",
+      "downloadModelHint": "First use requires downloading language models (~25MB), or run npm run download-ocr-langs to pre-download",
       "speedHint": "Chinese recognition ~5-15s/page, English ~2-5s/page",
-      "languageHint": "Select matching language for best results"
+      "languageHint": "Select matching language for best results",
+      "offlineModeHint": "Local language data detected, will use offline mode",
+      "onlineModeHint": "No local language data detected, will download from CDN (requires internet)"
     },
     "pageOps": {
       "title": "Page Operations",

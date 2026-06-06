@@ -444,9 +444,11 @@
       "deselectAll": "取消全选",
       "selectedCount": "已选择 {{count}} 个文件",
       "recognizing": "正在识别... {{progress}}%",
-      "downloadModelHint": "首次使用需下载语言模型（约25MB），请耐心等待",
+      "downloadModelHint": "首次使用需下载语言模型（约 25MB），或运行 npm run download-ocr-langs 预下载",
       "speedHint": "中文识别速度约5-15秒/页，英文约2-5秒/页",
-      "languageHint": "建议选择与文档匹配的语言以获得最佳效果"
+      "languageHint": "建议选择与文档匹配的语言以获得最佳效果",
+      "offlineModeHint": "已检测到本地语言数据，将使用离线模式",
+      "onlineModeHint": "未检测到本地语言数据，将从 CDN 下载（需联网）"
     },
     "pageOps": {
       "title": "页面操作",
