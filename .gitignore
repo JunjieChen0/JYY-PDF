@@ -1,44 +1,90 @@
 # Dependencies
-node_modules
-.pnpm-debug.log*
-.yarn-debug.log*
-.yarn-error.log*
+node_modules/
 
-# Build output
-dist
-dist-electron
-release
-build
+# Build artifacts
+dist/
+build/
+target/
 
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py.class
+*.class
+*.o
+*.obj
+*.so
+*.dll
+*.exe
+*.out
 
-# IDE
-.vscode
-.idea
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
 
 # Logs
-logs
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
 # Temporary files
 *.tmp
 *.temp
-.cache
+*.swp
+*.swo
 
-# Test coverage
-coverage
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+*.env.*
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# MyPy
+.mypy_cache/
+
+# Pytest
+.pytest_cache/
+
+# Gradle
+.gradle/
+
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst

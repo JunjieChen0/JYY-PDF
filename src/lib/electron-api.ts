@@ -6,6 +6,7 @@ const fallbackAPI: ElectronAPI = {
   readFile: () => Promise.resolve({ error: 'electronAPI 不可用' }),
   writeFile: () => Promise.resolve({ error: 'electronAPI 不可用' }),
   fileExists: () => Promise.resolve(false),
+  checkFileExists: () => Promise.resolve(false),
   fileStat: () => Promise.resolve({ size: 0, isFile: false, isDirectory: false } as const),
   convertWordToPdf: () => Promise.resolve({ error: 'electronAPI 不可用' }),
   convertWordToPdfData: () => Promise.resolve({ error: 'electronAPI 不可用' }),
@@ -13,6 +14,7 @@ const fallbackAPI: ElectronAPI = {
   decryptPdf: () => Promise.resolve({ error: 'electronAPI 不可用' }),
   readSystemFont: () => Promise.resolve({ error: 'electronAPI 不可用' }),
   getPathForFile: () => '',
+  getAppPath: () => '',
 }
 
 export function ensureElectronAPI(): void {

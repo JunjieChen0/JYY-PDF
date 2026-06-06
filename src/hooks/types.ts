@@ -36,6 +36,7 @@ export interface ElectronAPI {
   readFile: (filePath: string) => Promise<Uint8Array | FileResult>
   writeFile: (filePath: string, buffer: Uint8Array) => Promise<boolean | FileResult>
   fileExists: (filePath: string) => Promise<boolean>
+  checkFileExists: (filePath: string) => Promise<boolean>
   fileStat: (filePath: string) => Promise<{ size: number; isFile: boolean; isDirectory: boolean }>
   convertWordToPdf: (filePath: string) => Promise<{ data?: Uint8Array; error?: string }>
   convertWordToPdfData: (data: Uint8Array) => Promise<{ data?: Uint8Array; error?: string }>
@@ -43,6 +44,7 @@ export interface ElectronAPI {
   decryptPdf: (options: DecryptOptions) => Promise<{ data?: Uint8Array; error?: string }>
   readSystemFont: (fontName: string) => Promise<Uint8Array | FileResult>
   getPathForFile: (file: File) => string
+  getAppPath: () => string
 }
 
 declare global {

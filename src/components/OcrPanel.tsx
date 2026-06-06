@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ErrorCode } from '@/lib/i18n'
 import { motion } from 'framer-motion'
@@ -38,10 +38,35 @@ export function OcrPanel({ pdf }: OcrPanelProps) {
   ]
 
   const [language, setLanguage] = useState('chi_sim+eng')
+  const [useOfflineMode, setUseOfflineMode] = useState<boolean | null>(null)
   const { isProcessing, progress, execute, cancel } = useOperation({
     errorMessagePrefix: t('errorPrefix.ocr'),
     onCancelMessage: t('panel.ocr.cancelMessage'),
   })
+
+  // 检查是否可以使用离线模式
+  const checkOfflineMode = async () => {
+    if (window.electronAPI?.getAppPath && window.electronAPI?.checkFileExists) {
+      const appPath = window.electronAPI.getAppPath()
+      const langCodes = language.split('+')
+      let allExist = true
+      for (const code of langCodes) {
+        const langPath = `${appPath}/public/tesseract/langs/${code}.traineddata.gz`
+        const exists = await window.electronAPI.checkFileExists(langPath)
+        if (!exists) {
+          allExist = false
+          break
+        }
+      }
+      setUseOfflineMode(allExist)
+    } else {
+      setUseOfflineMode(false)
+    }
+  }
+
+  useEffect(() => {
+    checkOfflineMode()
+  }, [language])
 
   const handleOcr = async () => {
     if (selectedCount === 0) {
@@ -162,6 +187,12 @@ export function OcrPanel({ pdf }: OcrPanelProps) {
 
             <div className="text-xs text-muted-foreground space-y-1">
               <p>• {t('panel.ocr.downloadModelHint')}</p>
+              {useOfflineMode === true && (
+                <p className="text-green-600">✓ {t('panel.ocr.offlineModeHint')}</p>
+              )}
+              {useOfflineMode === false && (
+                <p className="text-orange-600">⚠ {t('panel.ocr.onlineModeHint')}</p>
+              )}
               <p>• {t('panel.ocr.speedHint')}</p>
               <p>• {t('panel.ocr.languageHint')}</p>
             </div>
