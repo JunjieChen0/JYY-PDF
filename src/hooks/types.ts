@@ -37,12 +37,14 @@ export interface ElectronAPI {
   writeFile: (filePath: string, buffer: Uint8Array) => Promise<boolean | FileResult>
   fileExists: (filePath: string) => Promise<boolean>
   checkFileExists: (filePath: string) => Promise<boolean>
+  registerPath: (filePath: string) => Promise<boolean>
   fileStat: (filePath: string) => Promise<{ size: number; isFile: boolean; isDirectory: boolean }>
   convertWordToPdf: (filePath: string) => Promise<{ data?: Uint8Array; error?: string }>
   convertWordToPdfData: (data: Uint8Array) => Promise<{ data?: Uint8Array; error?: string }>
   encryptPdf: (options: EncryptOptions) => Promise<{ data?: Uint8Array; error?: string }>
   decryptPdf: (options: DecryptOptions) => Promise<{ data?: Uint8Array; error?: string }>
   readSystemFont: (fontName: string) => Promise<Uint8Array | FileResult>
+  getTesseractPaths: () => Promise<{ worker: string; coreDir: string; langDir: string }>
   getPathForFile: (file: File) => string
   getAppPath: () => string
 }

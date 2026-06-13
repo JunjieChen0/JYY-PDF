@@ -13,6 +13,7 @@ const electronMock = {
     getPath: (name: string) => `/mock/${name}`,
     whenReady: () => Promise.resolve(),
     on: () => {},
+    isPackaged: false,
   },
   BrowserWindow: vi.fn().mockImplementation(() => {
     const win: any = {
@@ -27,6 +28,7 @@ const electronMock = {
       },
       show: vi.fn(),
       destroy: vi.fn(),
+      setMenu: vi.fn(),
     }
     win.on = vi.fn((_event: string, _handler: any) => win)
     return win
@@ -48,6 +50,13 @@ const electronMock = {
         onBeforeRequest: vi.fn((_filter: any, _listener: any) => {}),
       },
     },
+  },
+  protocol: {
+    registerSchemesAsPrivileged: vi.fn(),
+    handle: vi.fn(),
+  },
+  net: {
+    fetch: vi.fn(),
   },
 }
 
@@ -96,6 +105,7 @@ describe('main.cjs IPC handler registration', () => {
       'fs:readFile',
       'fs:writeFile',
       'fs:exists',
+      'fs:registerPath',
       'fs:readSystemFont',
       'fs:stat',
       'encrypt:encryptPdf',
@@ -164,6 +174,28 @@ describe('fs:readFile / writeFile / exists / stat', () => {
   test('fs:stat returns error for traversal', async () => {
     const result = await handlers['fs:stat']!({}, '../escape')
     expect(result.error).toBeDefined()
+  })
+})
+
+describe('fs:registerPath', () => {
+  test('registers a valid path and returns true', async () => {
+    const result = await handlers['fs:registerPath']!({}, 'C:\\Users\\test\\file.pdf')
+    expect(result).toBe(true)
+  })
+
+  test('rejects path traversal and returns false', async () => {
+    const result = await handlers['fs:registerPath']!({}, '../etc/passwd')
+    expect(result).toBe(false)
+  })
+
+  test('rejects null/empty input', async () => {
+    expect(await handlers['fs:registerPath']!({}, '')).toBe(false)
+    expect(await handlers['fs:registerPath']!({}, null as unknown as string)).toBe(false)
+  })
+
+  test('registered path returns true for valid path', async () => {
+    const result = await handlers['fs:registerPath']!({}, 'C:\\test\\readable.pdf')
+    expect(result).toBe(true)
   })
 })
 

@@ -20,7 +20,7 @@ function getLocalLangPath(langCode: string): string | null {
       // 这里我们返回一个标记，让 Tesseract 知道使用本地文件
       return langPath
     }
-  } catch (e) {
+  } catch {
     // 非 Electron 环境或 API 不可用
   }
   return null
@@ -71,16 +71,19 @@ export function usePDFOCR(files: PDFFile[]) {
       }
       
       // 配置 worker
-      const workerConfig: any = {
+      const workerConfig: {
+        workerPath: string
+        corePath: string
+        gzip: boolean
+        langPath?: string
+      } = {
         workerPath: './tesseract/worker.min.js',
         corePath: './tesseract/core/',
         gzip: true,
       }
-      
+
       // 如果使用本地语言数据，设置 langPath 为本地路径
       if (useLocal && Object.keys(localPaths).length > 0) {
-        // 对于多语言，使用第一个语言的路径作为基础
-        const firstLang = langCodes[0]
         workerConfig.langPath = `file://${window.electronAPI?.getAppPath()}/public/tesseract/langs/`
       } else {
         // 否则使用 CDN

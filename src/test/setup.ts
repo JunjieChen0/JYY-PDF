@@ -8,6 +8,8 @@ if (typeof window !== 'undefined' && !window.electronAPI) {
     readFile: () => Promise.resolve({ error: 'electronAPI 不可用' }),
     writeFile: () => Promise.resolve({ error: 'electronAPI 不可用' }),
     fileExists: () => Promise.resolve(false),
+    checkFileExists: () => Promise.resolve(false),
+    registerPath: () => Promise.resolve(false),
     fileStat: () =>
       Promise.resolve({ error: 'electronAPI 不可用' } as unknown as {
         size: number
@@ -19,7 +21,9 @@ if (typeof window !== 'undefined' && !window.electronAPI) {
     encryptPdf: () => Promise.resolve({ error: 'electronAPI 不可用' }),
     decryptPdf: () => Promise.resolve({ error: 'electronAPI 不可用' }),
     readSystemFont: () => Promise.resolve({ error: 'electronAPI 不可用' }),
+    getTesseractPaths: () => Promise.resolve({ worker: '', coreDir: '', langDir: '' }),
     getPathForFile: () => '',
+    getAppPath: () => '',
   }
   window.electronAPI = fallback
 }

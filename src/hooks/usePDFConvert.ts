@@ -305,6 +305,7 @@ export function usePDFConvert(files: PDFFile[]) {
     async (filePath: string, onProgress?: ProgressCallback, token?: CancellationToken) => {
       token?.throwIfCancelled()
       onProgress?.(10)
+      await window.electronAPI.registerPath(filePath)
       const exists = await window.electronAPI.fileExists(filePath)
       if (!exists) throw new Error(t(ErrorCode.FILE_NOT_FOUND))
 

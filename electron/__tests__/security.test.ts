@@ -90,6 +90,14 @@ describe('isPathAllowed', () => {
     expect(isPathAllowed('C:\\docs\\image.png', 'read', registry)).toBe(true)
   })
 
+  test('allows reading .docx and .doc files', () => {
+    const registry = createPathRegistry()
+    registry.add('C:\\docs\\report.docx')
+    registry.add('C:\\docs\\old.doc')
+    expect(isPathAllowed('C:\\docs\\report.docx', 'read', registry)).toBe(true)
+    expect(isPathAllowed('C:\\docs\\old.doc', 'read', registry)).toBe(true)
+  })
+
   test('rejects read with disallowed extension', () => {
     const registry = createPathRegistry()
     registry.add('C:\\docs\\script.exe')

@@ -66,6 +66,7 @@ export function OcrPanel({ pdf }: OcrPanelProps) {
 
   useEffect(() => {
     checkOfflineMode()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language])
 
   const handleOcr = async () => {

@@ -12,7 +12,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   convertWordToPdfData: (data) => ipcRenderer.invoke('convert:wordToPdfData', data),
   encryptPdf: (options) => ipcRenderer.invoke('encrypt:encryptPdf', options),
   decryptPdf: (options) => ipcRenderer.invoke('encrypt:decryptPdf', options),
+  registerPath: (filePath) => ipcRenderer.invoke('fs:registerPath', filePath),
   readSystemFont: (fontName) => ipcRenderer.invoke('fs:readSystemFont', fontName),
+  getTesseractPaths: () => ipcRenderer.invoke('tesseract:getPaths'),
   getPathForFile: (file) => {
     try {
       return webUtils.getPathForFile(file)

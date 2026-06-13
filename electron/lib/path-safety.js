@@ -1,7 +1,7 @@
 const path = require('path')
 
 const ALLOWED_WRITE_EXTS = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.txt', '.docx', '.doc'])
-const ALLOWED_READ_EXTS = new Set(['.pdf', '.png', '.jpg', '.jpeg'])
+const ALLOWED_READ_EXTS = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.docx', '.doc'])
 
 function isPathSafe(filePath) {
   if (!filePath || typeof filePath !== 'string') return false
