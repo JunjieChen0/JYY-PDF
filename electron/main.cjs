@@ -1,10 +1,11 @@
-const { app, BrowserWindow, ipcMain, dialog, session } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, session, protocol, net } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { spawn } = require('child_process')
 const crypto = require('crypto')
 const dompurify = require('isomorphic-dompurify')
 const pathSafety = require('./lib/path-safety')
+const { resolveAppUrlToFilePath } = require('./lib/app-protocol')
 
 const pathRegistry = pathSafety.createPathRegistry()
 
@@ -215,6 +216,27 @@ async function wordBufferToPdfBuffer(wordBuffer) {
   }
 }
 
+function getTesseractRoot() {
+  const appPath = app.getAppPath()
+  const unpacked = appPath.replace(/\.asar$/, '.asar.unpacked')
+  return path.join(unpacked, 'dist', 'tesseract')
+}
+
+ipcMain.handle('tesseract:getPaths', async () => {
+  const tesseractRoot = getTesseractRoot()
+  // Use path.relative so the URL stays inside tesseract root, avoiding absolute
+  // drive-letter prefixes (e.g. C:/) that would break protocol-handler sandboxing.
+  const toAppUrl = (p) => {
+    const rel = path.relative(tesseractRoot, p)
+    return 'app://local/' + rel.split(path.sep).join('/')
+  }
+  return {
+    worker: toAppUrl(path.join(tesseractRoot, 'worker.min.js')),
+    coreDir: toAppUrl(path.join(tesseractRoot, 'core')) + '/',
+    langDir: toAppUrl(path.join(tesseractRoot, 'lang-data')),
+  }
+})
+
 ipcMain.handle('convert:wordToPdf', async (event, filePath) => {
   try {
     if (!isPathSafe(filePath)) throw new Error('Invalid file path')
@@ -290,15 +312,41 @@ function createWindow() {
   }
 }
 
+// tesseract asset paths are now resolved at runtime via IPC using file:// URLs.
+
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'app', privileges: { secure: true, standard: true, supportFetchAPI: true, corsEnabled: true } }
+])
+
 app.whenReady().then(() => {
+  const tesseractRoot = getTesseractRoot()
+
+  protocol.handle('app', async (request) => {
+    const result = resolveAppUrlToFilePath(request.url, tesseractRoot)
+    if (!result.ok) {
+      return new Response('forbidden', { status: result.status })
+    }
+    let real
+    try {
+      real = await fs.promises.realpath(result.filePath)
+    } catch {
+      return new Response('not found', { status: 404 })
+    }
+    const rootResolved = path.resolve(tesseractRoot)
+    if (!real.startsWith(rootResolved + path.sep) && real !== rootResolved) {
+      return new Response('forbidden', { status: 403 })
+    }
+    return net.fetch('file:///' + real.replace(/\\/g, '/'))
+  })
+
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
           app.isPackaged
-            ? "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net; worker-src 'self' blob:"
-            : "default-src 'self' http://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:*; style-src 'self' 'unsafe-inline' http://localhost:*; img-src 'self' data: blob: http://localhost:*; font-src 'self' data: http://localhost:*; connect-src 'self' ws: http://localhost:* https://cdn.jsdelivr.net; worker-src 'self' blob: http://localhost:*",
+            ? "default-src 'self' app:; script-src 'self' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: app:; font-src 'self' data:; connect-src 'self' app:; worker-src 'self' blob: app:"
+            : "default-src 'self' http://localhost:* app:; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:* app:; style-src 'self' 'unsafe-inline' http://localhost:*; img-src 'self' data: blob: http://localhost:* app:; font-src 'self' data: http://localhost:*; connect-src 'self' ws: http://localhost:* app:; worker-src 'self' blob: http://localhost:* app:",
         ],
       },
     })
@@ -432,6 +480,17 @@ ipcMain.handle('fs:exists', async (event, filePath) => {
       .stat(filePath)
       .then(() => true)
       .catch(() => false)
+  } catch {
+    return false
+  }
+})
+
+ipcMain.handle('fs:registerPath', async (event, filePath) => {
+  try {
+    if (!filePath || typeof filePath !== 'string') return false
+    if (!isPathSafe(filePath)) return false
+    pathRegistry.add(filePath)
+    return true
   } catch {
     return false
   }
@@ -584,31 +643,24 @@ ipcMain.handle('encrypt:encryptPdf', async (event, options) => {
 
     await fs.promises.writeFile(inputPath, Buffer.from(options.data))
 
-    const args = ['--encrypt', '--password=-', String(keyLength)]
-    const combinedPassword = `${userPassword}\n${ownerPassword}`
+    const args = ['--encrypt']
+    if (userPassword) args.push(`--user-password=${userPassword}`)
+    if (ownerPassword) args.push(`--owner-password=${ownerPassword}`)
+    args.push(`--bits=${keyLength}`)
 
-    if (keyLength === 128) {
-      if (options.restrictions) {
-        if (options.restrictions.print) args.push(`--print=${options.restrictions.print}`)
-        if (options.restrictions.modify) args.push(`--modify=${options.restrictions.modify}`)
-        if (options.restrictions.extract) args.push(`--extract=${options.restrictions.extract}`)
-        if (options.restrictions.useAes === 'y') args.push('--use-aes=y')
-        if (options.restrictions.accessibility === 'n') args.push('--accessibility=n')
-      }
-    } else if (keyLength === 256) {
-      if (options.restrictions) {
-        if (options.restrictions.print) args.push(`--print=${options.restrictions.print}`)
-        if (options.restrictions.modify) args.push(`--modify=${options.restrictions.modify}`)
-        if (options.restrictions.extract) args.push(`--extract=${options.restrictions.extract}`)
-        if (options.restrictions.accessibility === 'n') args.push('--accessibility=n')
-        if (options.restrictions.forceR5 === 'y') args.push('--force-R5')
-      }
+    if (options.restrictions) {
+      if (options.restrictions.print) args.push(`--print=${options.restrictions.print}`)
+      if (options.restrictions.modify) args.push(`--modify=${options.restrictions.modify}`)
+      if (options.restrictions.extract) args.push(`--extract=${options.restrictions.extract}`)
+      if (options.restrictions.accessibility === 'n') args.push('--accessibility=n')
+      if (keyLength === 128 && options.restrictions.useAes === 'y') args.push('--use-aes=y')
+      if (keyLength === 256 && options.restrictions.forceR5 === 'y') args.push('--force-R5')
     }
 
     args.push('--')
     args.push(inputPath, outputPath)
 
-    await runQpdf(args, combinedPassword)
+    await runQpdf(args)
 
     const result = await fs.promises.readFile(outputPath)
     return { data: new Uint8Array(result) }
